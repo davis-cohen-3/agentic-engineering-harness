@@ -1,0 +1,7 @@
+.claude/settings.local.json
+.claude/active-spec
+specs/.context/
+CLAUDE.local.md
+.handoffs/
+node_modules/
+.DS_Store
