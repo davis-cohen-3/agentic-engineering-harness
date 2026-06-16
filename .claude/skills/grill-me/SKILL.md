@@ -7,9 +7,26 @@ STARTER_CHARACTER = 🔥 — open each reply with it while this skill is active.
 
 Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
 
-Ask the questions one at a time.
+Ask the questions one at a time, waiting for my answer before moving to the next.
 
-If a question can be answered by exploring the codebase, explore the codebase instead.
+If a question can be answered by exploring the codebase, explore it instead of asking me.
+
+## How to grill — techniques
+Use these deliberately; each makes a question sharper than a generic "have you considered X?".
+
+- **Sharpen fuzzy language.** When I use a vague or overloaded term, propose a precise canonical
+  one and make me pick. "You said 'the job' — do you mean the queued task or the cron entry?
+  Those behave differently."
+- **Stress-test with concrete scenarios.** Don't argue in the abstract — invent a specific edge
+  case that forces precision about a boundary. "Two runs bind the same spec at once — which one
+  wins, and what does the second see?"
+- **Cross-reference against the code.** When I claim how something works, verify it against the
+  codebase before accepting it, and surface contradictions on the spot. "You said the hook
+  blocks on the default branch, but `branch-guard.sh` only warns — which is intended?"
+- **Challenge against the glossary.** When a term clashes with `agent_docs/glossary.md`, call it
+  out and reconcile it before moving on (grounding rule below).
+- **Follow the dependency, not the list.** When an answer changes a downstream decision, chase
+  that branch next instead of marching through a flat checklist.
 
 ## Ground the grilling in this codebase (harness)
 Consult `agent_docs/` **on demand — do NOT read it wholesale.** When a question touches an
