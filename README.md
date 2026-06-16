@@ -86,6 +86,4 @@ missing tool.
 - **Global** (all your repos, this machine only): `~/.claude/CLAUDE.md`.
 
 ## Where the "why" lives
-Design narrative: `docs/` (`OVERLAY-CONTRACT.md`, `PLAN-MODE.md`, `SOURCES.md`). What to steal
-next: `docs/recommended/`. (Orchestrator/Warren requirements are tracked outside this repo — the
-harness ends at the spec hand-off.)
+Design narrative: `docs/` (`OVERLAY-CONTRACT.md`, `PLAN-MODE.md`, `SOURCES.md`). 
