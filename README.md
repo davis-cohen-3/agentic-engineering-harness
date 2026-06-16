@@ -1,4 +1,4 @@
-# harness-lab
+# agentic-coding-harness
 
 A **portable Claude Code harness base**: repo-agnostic skills, agents, hooks, and a definition
 of done that drops into any repository and travels into an autonomous sandbox (Warren/burrow)
@@ -19,12 +19,12 @@ Claude Code session **inside your target repo**, pointed at a local clone of thi
 scouting, filling, and verifying all happen in the repo you'll actually work in.
 
 1. **Once, ever — clone the harness to a stable home you reuse for every project:**
-   `git clone <this-repo> ~/harness-lab`. You never re-clone it per project; one clone serves all
+   `git clone <this-repo> ~/agentic-coding-harness`. You never re-clone it per project; one clone serves all
    your repos.
 2. **Per repo — open Claude Code in the target repo and point it at that clone:**
    `cd ~/projects/app && claude`, then ask:
-   *"Adopt the harness at `~/harness-lab` into this repo — read its `adopt-harness` skill and follow
-   it."* The agent runs the manifest copy (`~/harness-lab/.claude/skills/adopt-harness/copy.sh .`),
+   *"Adopt the harness at `~/agentic-coding-harness` into this repo — read its `adopt-harness` skill and follow
+   it."* The agent runs the manifest copy (`~/agentic-coding-harness/.claude/skills/adopt-harness/copy.sh .`),
    then scouts **this** repo and drafts the fills with you — natively, because the session is
    already here.
 3. **Fill three slots, then verify:** confirm the drafts for the only repo-specific pieces —

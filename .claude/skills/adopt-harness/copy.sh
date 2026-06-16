@@ -25,7 +25,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 
 # ── THE MANIFEST — the portable harness, exactly. Edit here when the boundary moves. ──
 # Paths are relative to the harness root. Directories copy recursively. Everything
-# NOT listed (docs/, README.md, harness-lab's own CLAUDE.md + make/gate.mk, .git) stays home.
+# NOT listed (docs/, README.md, agentic-coding-harness's own CLAUDE.md + make/gate.mk, .git) stays home.
 MANIFEST=(
   CLAUDE.template.md          # → renamed to CLAUDE.md in the target (below)
   .claude/FLOOR.md

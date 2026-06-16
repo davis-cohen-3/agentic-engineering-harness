@@ -19,7 +19,7 @@ draft the fills for the user to confirm.
 
 ## 1. Copy the traveling tree
 This session runs IN the target repo, pointed at a local clone of the harness (e.g.
-`~/harness-lab`). Ask the user for that harness path and the gate flavor
+`~/agentic-coding-harness`). Ask the user for that harness path and the gate flavor
 (`python`/`ts`/`none`), then run the manifest copy with the target as `.` (here):
 
 ```
