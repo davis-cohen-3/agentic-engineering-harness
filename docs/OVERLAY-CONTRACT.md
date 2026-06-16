@@ -1,6 +1,6 @@
 # Overlay contract — what a repo supplies to inherit this harness
 
-`harness-lab` is the **base**: repo-agnostic skills, hooks, agents, and the definition of done.
+`agentic-coding-harness` is the **base**: repo-agnostic skills, hooks, agents, and the definition of done.
 A repo inherits all of it by filling these **slots** — onboarding fills the slots, it does not
 rebuild the harness. The `adopt-harness` skill executes this contract (copy the base, then fill);
 this doc is the conceptual reference behind it.

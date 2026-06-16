@@ -1,4 +1,4 @@
-# harness-lab — repo profile
+# agentic-coding-harness — repo profile
 
 > Two parts: the **PROFILE** below (this repo's stack, structure, commands, conventions, tuned
 > hotspots) and the **FLOOR** — the repo-agnostic must-always-fire rules, imported just below

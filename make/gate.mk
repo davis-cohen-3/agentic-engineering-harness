@@ -1,6 +1,6 @@
-# Gate overlay (Slot 2) — ACTIVE for THIS repo (harness-lab).
+# Gate overlay (Slot 2) — ACTIVE for THIS repo (agentic-coding-harness).
 #
-# harness-lab is a HARNESS BASE, not an app, so its "gate" validates the harness
+# agentic-coding-harness is a HARNESS BASE, not an app, so its "gate" validates the harness
 # itself: config is valid JSON and hooks are executable. A real repo DELETES this
 # and copies make/gate.example-python.mk or -ts.mk in its place.
 
