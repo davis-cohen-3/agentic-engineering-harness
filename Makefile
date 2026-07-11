@@ -47,21 +47,20 @@ work:
 	  mkdir -p .claude && printf '%s\n' "$$spec" > .claude/active-spec; \
 	  echo "→ bound this worktree to $$spec  (.claude/active-spec)"
 
-# Sync this harness's .claude/ capabilities into the global config dir — nothing else does, so
-# they drift. Skills/rules/agents/commands only: NOT hooks — hooks are behavior, wired per-repo,
-# and the global config wires them deliberately (don't blanket-push them). Guarded to the harness
-# (CLAUDE.template.md marker) so an adopted repo can't push its stale .claude/ over your global one.
-# Additive; `DELETE=--delete` for a strict mirror.
+# Sync harness→global config (nothing else does, so they drift). ONLY skills/agents/commands: rules
+# and hooks are split-purpose (harness ships project-scoped versions; global has your personal/wired
+# ones), so a blanket push pollutes global. Guarded to the harness so an adopted repo can't push its
+# stale .claude/ over global. Additive; `DELETE=--delete` for a strict mirror.
 CLAUDE_HOME ?= $(if $(CLAUDE_CONFIG_DIR),$(CLAUDE_CONFIG_DIR),$(HOME)/.claude)
 DELETE ?=
 install-global:
 	@test -f CLAUDE.template.md || { echo "✗ install-global runs only from the harness repo (no CLAUDE.template.md here)"; exit 2; }
 	@test -d "$(CLAUDE_HOME)" || { echo "✗ no Claude config dir at $(CLAUDE_HOME) — set CLAUDE_CONFIG_DIR"; exit 2; }
 	@command -v rsync >/dev/null || { echo "✗ rsync not found"; exit 2; }
-	@for d in skills rules agents commands; do \
+	@for d in skills agents commands; do \
 	  if [ -d ".claude/$$d" ]; then \
 	    echo "  → $$d/"; \
 	    rsync -a --itemize-changes $(DELETE) ".claude/$$d/" "$(CLAUDE_HOME)/$$d/"; \
 	  fi; \
 	done
-	@echo "✅ harness .claude/{skills,rules,agents,commands} → $(CLAUDE_HOME)"
+	@echo "✅ harness .claude/{skills,agents,commands} → $(CLAUDE_HOME)"
