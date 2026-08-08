@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm -v)",
+      "Bash(ruby -v)",
+      "Bash(go version *)",
+      "Bash(cargo --version)",
+      "Bash(bun -v)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.jayminwest.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh api *)",
+      "Skill(deep-research)"
+    ]
+  }
+}
