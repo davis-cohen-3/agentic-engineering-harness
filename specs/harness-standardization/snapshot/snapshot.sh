@@ -31,7 +31,19 @@ RUNTIME_MANIFEST="$SNAP_DIR/MANIFEST-runtime.sha256"
 TREES="$SNAP_DIR/trees"
 
 # Roots walked, relative to $HOME. Unique — no path is inside another.
-ROOTS=(".agents" ".codex/skills" "agents/claude")
+#
+# The last six are an ADDENDUM beyond T0.1's four named trees. T0.3 found that
+# ~/.codex/agents already holds the four .toml agents CONTRACT §5 requires in
+# core/codex/agents/ — authored, unversioned, and outside the original scope, i.e.
+# exactly the Blocker #2 class of content this snapshot exists to protect. Capturing
+# them here rather than leaving the gap merely flagged.
+#
+# ~/.codex/auth.json is deliberately NOT walked: it holds credentials.
+ROOTS=(
+  ".agents" ".codex/skills" "agents/claude"
+  ".codex/agents" ".codex/rules" ".codex/hooks"
+  ".codex/hooks.json" ".codex/AGENTS.md" ".codex/config.toml"
+)
 
 # A path (relative to $HOME) is CONTENT if it matches one of these prefixes, else RUNTIME.
 is_content() {
@@ -39,6 +51,10 @@ is_content() {
     .agents/*)                              return 0 ;;
     .codex/skills/.system/*)                return 1 ;;   # vendor-shipped, reinstallable
     .codex/skills/*)                        return 0 ;;
+    .codex/agents/*)                        return 0 ;;
+    .codex/rules/*)                         return 0 ;;
+    .codex/hooks/*)                         return 0 ;;
+    .codex/hooks.json|.codex/AGENTS.md|.codex/config.toml) return 0 ;;
     agents/claude/skills/*)                 return 0 ;;
     agents/claude/agents/*)                 return 0 ;;
     agents/claude/rules/*)                  return 0 ;;
@@ -69,6 +85,7 @@ dest_for() {
   case "$1" in
     .agents/*)        printf 'dot-agents/%s'   "${1#.agents/}" ;;
     .codex/skills/*)  printf 'codex-skills/%s' "${1#.codex/skills/}" ;;
+    .codex/*)         printf 'codex-home/%s'   "${1#.codex/}" ;;
     agents/claude/*)  printf 'claude-home/%s'  "${1#agents/claude/}" ;;
   esac
 }

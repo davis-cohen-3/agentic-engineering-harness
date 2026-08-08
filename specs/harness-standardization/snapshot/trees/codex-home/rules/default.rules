@@ -1,0 +1,1 @@
+prefix_rule(pattern=["gh", "api", "repos/melting-co/melting-v2/contents/specs/build-week/BUILD-LOG.md?ref=main", "--jq", ".content"], decision="allow")

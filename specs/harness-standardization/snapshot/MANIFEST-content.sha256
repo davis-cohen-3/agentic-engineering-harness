@@ -13,6 +13,15 @@ d9b7047fb14d85a3dff8a331ff25d60ce917a9a2b152a0c1f0bf2653aed13aa4  ~/.agents/skil
 e0a5bd9bedf281547492d4269bffd107e97fa43f2ccf427d5ca908fa0172f7b7  ~/.agents/skills/tdd/SKILL.md
 5bf935610f64b47530e6c00be65b7aab9374725be696c865e641eb9c278391e2  ~/.agents/skills/verify-before-done/SKILL.md
 0acf66be0c72db3e6f18e4e53cab7f9f3728f9b43d8a5745f0487d760be2c02d  ~/.agents/skills/write-plan/SKILL.md
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ~/.codex/AGENTS.md
+ec2ba40e1ab1727b623bdfb1368c6763dc83cea549b6f3c1df81c0a1a79fa9e8  ~/.codex/agents/researcher.toml
+14d10a13b2d86aa2baa51ba599bea1b19180822f10edf85fb3a5e5e26e65d26c  ~/.codex/agents/reviewer-security.toml
+5f95c00e0ca53db65ad5a575a05335f2f39fe91d3594bbf603757c1b99b656f5  ~/.codex/agents/reviewer.toml
+9920747db567f8055765f3907fcd1a0c06e4655834b585f1420ca266bc4d4d44  ~/.codex/agents/scout.toml
+33803d1e6ecf05d671b2d97cb333a226cbd1d44f4debb8adc4e16929b9f6a381  ~/.codex/config.toml
+22955982afe2e5cb81811439fd98dfcf8247188fcdb2a802f8bf6f6b7fd4a29f  ~/.codex/hooks.json
+273c1931b1f934879522550aac6c541eb1cda97056cbbb44cc7ba2363a502796  ~/.codex/hooks/inject-global-rules.sh
+e7cfde48813b7630b5dc4ebd801d4d08e0400349a1c4f2f380f68c41bcb70f19  ~/.codex/rules/default.rules
 f1f36cd3f8d3b6474ddd5855da4e233bfc4ae1a1c5024909ccf11871819a41b2  ~/.codex/skills/domain-modeling/ADR-FORMAT.md
 f6bf2aa996c6e6f53fdd0708e18a0d16a56aed8322cca59fedbe3c0d2c75f06b  ~/.codex/skills/domain-modeling/agents/openai.yaml
 b8cc318f2a4285b530e908b6bc43901c3c5cd11100362636bbc4216639bef597  ~/.codex/skills/domain-modeling/CONTEXT-FORMAT.md

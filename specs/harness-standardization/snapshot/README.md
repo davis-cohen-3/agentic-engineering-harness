@@ -6,8 +6,12 @@ The pre-implementation audit artifact. Wave 1 rebuilds the machine tree, and ten
 only on disk — this captures them before anything moves. Read-only against the machine; the
 script writes nothing outside this directory.
 
-**Content digest:** `4c4807c6d4be3a3c202a0024322b0b23d4b41645c8250e863dcb5ff845c4e1ea`
+**Content digest:** `d176dcf2fa62baf742d90a990dbad077348fc6231397707c8d797a368b97e409`
 (sha256 of `MANIFEST-content.sha256`; re-running `snapshot.sh` reprints it).
+
+> **Addendum, added during T0.3.** Six `~/.codex/` paths were added to the walk after T0.3 found
+> that `~/.codex/agents/` already holds the four `.toml` agents CONTRACT §5 requires — authored,
+> unversioned, and outside T0.1's four named trees. See [Addendum](#addendum--the-codex-home-surfaces).
 
 ---
 
@@ -21,9 +25,11 @@ nothing was counted twice — which is what the acceptance line's "every **uniqu
 ~/.agents           →  trees/dot-agents/
 ~/.codex/skills     →  trees/codex-skills/
 ~/agents/claude     →  trees/claude-home/     (= ~/.claude, same inode)
+~/.codex/{agents,rules,hooks,hooks.json,AGENTS.md,config.toml}
+                    →  trees/codex-home/      (addendum — see below)
 ```
 
-**5471 unique files** were checksummed — every file under all three roots, nothing excluded.
+**5484 unique files** were checksummed — every file under those roots, nothing excluded.
 
 ## Two zones, two manifests
 
@@ -31,8 +37,8 @@ They have different consumers, so they are separate files rather than one 1 MB m
 
 | Manifest | Files | Copied into `trees/`? | Consumer |
 | --- | --- | --- | --- |
-| `MANIFEST-content.sha256` | 142 | yes (141 — see Secrets) | T0.2 import; `install.sh` drift checks |
-| `MANIFEST-runtime.sha256` | 5329 | no | Wave 1 T1.4/T1.5 — the inventory taken before `~/agents/` is moved or retired |
+| `MANIFEST-content.sha256` | 151 | yes (150 — see Secrets) | T0.2 import; T0.3 `core/`; `install.sh` drift checks |
+| `MANIFEST-runtime.sha256` | 5333 | no | Wave 1 T1.4/T1.5 — the inventory taken before `~/agents/` is moved or retired |
 
 **Content** = authored harness material: all of `~/.agents`; `~/.codex/skills` minus the
 vendor-shipped `.system/`; and `~/agents/claude`'s `skills/ agents/ rules/ hooks/ commands/
@@ -131,6 +137,29 @@ rewrite (Codex reads `AGENTS.md`) is legitimate and is separately owned by T0.14
 
 ---
 
+## Addendum — the Codex home surfaces
+
+T0.1's stated scope was four trees, and the original report flagged `~/.codex/config.toml`,
+`hooks.json`, and `AGENTS.md` as out of scope. T0.3 then found something stronger: **`~/.codex/agents/`
+already contains all four `.toml` agents** that CONTRACT §5 requires in `core/codex/agents/` —
+authored on 2026-07-14, versioned nowhere, and listed in `CONTRACT.md` §9 as a component that
+"does not exist". It does exist; it was simply never captured.
+
+That is precisely the Blocker #2 class of content this snapshot exists to protect, so the walk was
+widened rather than the gap left flagged. Nine files added:
+
+| Path | Why it matters |
+| --- | --- |
+| `.codex/agents/{scout,researcher,reviewer,reviewer-security}.toml` | the Codex half of the eight agent files (T0.3); two are rewritten by T0.12 |
+| `.codex/hooks/inject-global-rules.sh` | **byte-identical** to the Claude copy — confirms CONTRACT §5's "one script, two bindings" |
+| `.codex/hooks.json` | registers only `inject-global-rules.sh`; Wave 1 T1.8's starting state |
+| `.codex/config.toml` | carries `[hooks.state] trusted_hash` — Wave 1 T1.8 needs the before-state |
+| `.codex/rules/default.rules` | one `gh api` prefix-allow rule, unversioned |
+| `.codex/AGENTS.md` | **0 bytes**, confirming CONTRACT §5's "stays empty" |
+
+`~/.codex/auth.json` is deliberately **not** walked — it holds credentials. Everything added was
+secret-scanned; `config.toml`'s `[mcp_servers.*.env]` blocks hold only paths and feature flags.
+
 ## Other observations for later waves
 
 - **Machine-level Claude registers exactly one hook**, `inject-global-rules.sh` — the same
@@ -139,9 +168,12 @@ rewrite (Codex reads `AGENTS.md`) is legitimate and is separately owned by T0.14
 - **Two scheduled tasks exist on the machine**, `docs-drift-check` and `overview-fresh-check`.
   `overview-fresh` is retired by CONTRACT §5, so its scheduled task will point at a skill that no
   longer installs. Not in any current task's scope — flagged here.
-- `~/.codex/config.toml`, `~/.codex/hooks.json`, and `~/.codex/AGENTS.md` are **outside T0.1's
-  stated four trees and were not captured.** They are Wave 1 T1.8 inputs (hook registration and
-  per-hash trust). Scope was left as written rather than widened; T1.8 should snapshot them first.
+- **The machine's agent definitions have drifted from the repo, in the direction Wave 0 wants.**
+  `~/.claude/agents/reviewer.md` is already `model: opus` where the repo says `sonnet`, and
+  `reviewer-security.md` differs only by a trailing space. T0.12 moves `reviewer-security` to
+  `opus`; the machine has separately been hand-edited toward that outcome for `reviewer`. Another
+  instance of the installed projection being edited in place. The repo is the source; T0.3 imports
+  the `.toml` bodies but takes agent *frontmatter* from the repo.
 
 ## Restoring a file
 
