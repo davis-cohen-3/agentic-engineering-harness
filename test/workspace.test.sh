@@ -30,6 +30,11 @@ echo "T0.7 — ensure-workspace.sh and wt"
 mkdir -p "$SB/origin" && git -C "$SB/origin" init -q --bare
 git clone -q "$SB/origin" "$SB/proj" 2>/dev/null
 git -C "$SB/proj" config user.email t@t; git -C "$SB/proj" config user.name t
+# CONTRACT §2: .workspace/ is excluded via the GLOBAL gitignore and no repo .gitignore mentions
+# it. Model that here — without it `git add -A` commits .workspace/ and every new worktree
+# inherits another worktree's task memory from origin/main.
+printf '.workspace/\n' >"$SB/gitignore-global"
+git -C "$SB/proj" config core.excludesFile "$SB/gitignore-global"
 printf 'setup:\n\t@echo setup-ran > setup.log\n' >"$SB/proj/Makefile"
 git -C "$SB/proj" add -A && git -C "$SB/proj" commit -qm init
 git -C "$SB/proj" branch -M main && git -C "$SB/proj" push -q origin main
@@ -163,6 +168,52 @@ grep -q 'kept' "$SB/o" && ok "says the worktree was kept" || no "did not say so"
 echo "wt — unadopted repo"
 [ -d "$SB/worktrees/thing/.claude" ] && no "the disposable repo was adopted" || ok "repo is unadopted"
 ok "an unadopted repo still got .workspace/ (asserted above)"
+
+echo ".workspace/ never enters git"
+git -C "$SB/proj" status --porcelain --untracked-files=all 2>/dev/null | grep -q '.workspace' \
+  && no ".workspace/ is visible to git" || ok ".workspace/ is ignored, so no worktree inherits another's memory"
+git -C "$SB/proj" ls-files 2>/dev/null | grep -q '.workspace' && no ".workspace/ got committed" || ok ".workspace/ is not tracked"
+
+echo "spec-session-orient.sh (T0.10) — read-only orientation"
+OR="$REPO/adopt/hooks/spec-session-orient.sh"
+fresh="$SB/worktrees/orient"
+wt --branch orient >/dev/null 2>&1
+
+# Registration order is load-bearing, so verify in a BRAND-NEW worktree, not an existing one:
+# run the two hooks in the order SessionStart registers them and confirm orientation sees what
+# the initialiser just created.
+snap_before="$(cd "$fresh" && find . -path ./.git -prune -o -type f -print | LC_ALL=C sort | xargs shasum -a 256 2>/dev/null | shasum -a 256)"
+( cd "$fresh" && "$EW" >/dev/null 2>&1 )
+out="$( cd "$fresh" && "$OR" 2>/dev/null )"
+snap_after="$(cd "$fresh" && find . -path ./.git -prune -o -type f -print | LC_ALL=C sort | xargs shasum -a 256 2>/dev/null | shasum -a 256)"
+echo "$out" | grep -q 'scoping' && ok "fresh worktree: orients off what ensure-workspace created" || no "orientation saw nothing in a fresh worktree"
+is "the hook writes NOTHING" "$snap_after" "$snap_before"
+[ -e "$fresh/.claude/active-spec" ] && no "still self-binds .claude/active-spec" || ok "no self-bind pointer written"
+[ -e "$fresh/specs/.context" ] && no "still creates a scratch notepad" || ok "no scratch notepad written"
+
+# Reversed order is exactly what CONTRACT §7 warns about.
+wt --branch orient2 >/dev/null 2>&1
+rm -rf "$SB/worktrees/orient2/.workspace"
+out2="$( cd "$SB/worktrees/orient2" && "$OR" 2>/dev/null )"
+[ -z "$out2" ] && ok "silent when nothing resolves (orientation before init)" || no "spoke with no workspace: $out2"
+
+printf -- '---\nstate: building\nspec: specs/real.md\n---\n\n## Next action\n\nWire the thing up.\n' >"$fresh/.workspace/MISSION.md"
+mkdir -p "$fresh/specs" && echo x >"$fresh/specs/real.md"
+( cd "$fresh" && "$REPO/bin/workspace-record" handoff earlier >/dev/null && "$REPO/bin/workspace-record" handoff later >/dev/null )
+( cd "$fresh" && "$REPO/bin/workspace-record" finding apidump >/dev/null )
+echo "SECRET-BODY-TEXT" >"$fresh/.workspace/history/"*handoff-later*
+out3="$( cd "$fresh" && "$OR" 2>/dev/null )"
+echo "$out3" | grep -q 'specs/real.md'        && ok "reports the spec path"        || no "no spec path"
+echo "$out3" | grep -q 'Wire the thing up'    && ok "reports the next action"      || no "no next action"
+echo "$out3" | grep -q 'handoff-later'        && ok "reports the NEWEST handoff"   || no "wrong/no handoff"
+echo "$out3" | grep -q 'handoff-earlier'      && no "reported an older handoff too" || ok "only the newest handoff"
+echo "$out3" | grep -q 'finding-apidump'      && ok "reports finding filenames"    || no "no findings"
+echo "$out3" | grep -q 'SECRET-BODY-TEXT'     && no "leaked record CONTENTS into context" || ok "filenames only, never contents"
+
+printf -- '---\nstate: building\nspec: specs/gone.md\n---\n' >"$fresh/.workspace/MISSION.md"
+out4="$( cd "$fresh" && "$OR" 2>/dev/null )"
+echo "$out4" | grep -q 'does not exist' && ok "reports an absent spec without repairing it" || no "did not report absent spec"
+grep -q 'specs/gone.md' "$fresh/.workspace/MISSION.md" && ok "left the mission untouched" || no "rewrote the mission"
 
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
