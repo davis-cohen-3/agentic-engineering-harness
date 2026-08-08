@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# wt — cut a worktree the way this harness expects one.
+#
+#   wt <project> --branch <b>     resolve <project> through the registry
+#   wt --branch <b>               resolve the repo from the cwd
+#
+# Three jobs, always in this order: create the worktree off origin/main, create .workspace/,
+# run `make setup`. Providers and Depot create worktrees too; this is the command-line path.
+#
+# There is deliberately NO --base. origin/main is absolute: a spec must be MERGED, not merely
+# committed, before parallel build worktrees are cut off it. That is already the observed
+# practice and removing the flag is what keeps it true.
+set -uo pipefail
+
+PROJECT="" BRANCH="" NO_SETUP=0
+die() { printf 'wt: %s\n' "$*" >&2; exit 1; }
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --branch) BRANCH="${2:-}"; shift 2 || die "--branch needs a value" ;;
+    --branch=*) BRANCH="${1#*=}"; shift ;;
+    --no-setup) NO_SETUP=1; shift ;;
+    --base|--base=*) die "there is no --base. Worktrees are always cut from origin/main; merge the spec first." ;;
+    -h|--help)
+      sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0 ;;
+    -*) die "unknown option: $1" ;;
+    *)  [ -z "$PROJECT" ] || die "unexpected argument: $1"; PROJECT="$1"; shift ;;
+  esac
+done
+[ -n "$BRANCH" ] || die "usage: wt [<project>] --branch <branch> [--no-setup]"
+case "$BRANCH" in
+  -*|*..*|*' '*) die "invalid branch name: $BRANCH" ;;
+esac
+
+CFG="${XDG_CONFIG_HOME:-$HOME/.config}"
+REGISTRY="$CFG/agents/projects.yaml"
+[ -f "$REGISTRY" ] || REGISTRY="$CFG/depot/projects.yaml"
+
+# Depot already requires Python, so reading its own YAML with Python adds no machine dependency.
+registry_lookup() {  # $1 = key ("name" or "repo"), $2 = value → "repo<TAB>worktree_root"
+  [ -f "$REGISTRY" ] || return 1
+  python3 - "$REGISTRY" "$1" "$2" <<'PY' 2>/dev/null
+import os,sys,yaml
+path,key,want = sys.argv[1],sys.argv[2],sys.argv[3]
+def ex(p): return os.path.realpath(os.path.expanduser(p)) if p else p
+with open(path) as f: doc = yaml.safe_load(f) or {}
+for name, p in (doc.get("projects") or {}).items():
+    if not isinstance(p, dict): continue
+    if (key == "name" and name == want) or (key == "repo" and ex(p.get("repo","")) == want):
+        repo = os.path.expanduser(p.get("repo","") or "")
+        wr   = os.path.expanduser(p.get("worktree_root","") or "")
+        print(f"{repo}\t{wr}"); sys.exit(0)
+sys.exit(1)
+PY
+}
+
+REPO="" ROOT=""
+if [ -n "$PROJECT" ]; then
+  hit="$(registry_lookup name "$PROJECT")" \
+    || die "no project '$PROJECT' in $REGISTRY — add it, or run wt from inside the repo"
+  REPO="${hit%%$'\t'*}"; ROOT="${hit##*$'\t'}"
+  [ -d "$REPO" ] || die "project '$PROJECT' points at a directory that does not exist: $REPO"
+else
+  REPO="$(git rev-parse --show-toplevel 2>/dev/null)" \
+    || die "not inside a git repository, and no <project> given"
+  if hit="$(registry_lookup repo "$(cd "$REPO" && pwd -P)")"; then
+    ROOT="${hit##*$'\t'}"
+  fi
+fi
+
+# Unregistered repo: <container>/worktrees/. .workspace/ does not require adoption, and neither
+# does this — an unregistered repo is a normal case, not an error.
+[ -n "$ROOT" ] || ROOT="$(dirname "$REPO")/worktrees"
+
+git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || die "not a git repository: $REPO"
+git -C "$REPO" remote get-url origin >/dev/null 2>&1 || die "$REPO has no 'origin' remote"
+
+# A branch with slashes becomes its last path segment on disk: claude/w1-17-x -> w1-17-x
+DIR="$ROOT/${BRANCH##*/}"
+
+if git -C "$REPO" show-ref --verify --quiet "refs/heads/$BRANCH"; then
+  existing="$(git -C "$REPO" worktree list --porcelain | awk -v b="refs/heads/$BRANCH" '
+    /^worktree /{w=$2} $0=="branch "b{print w; exit}')"
+  die "branch '$BRANCH' already exists${existing:+ at $existing}"
+fi
+[ -e "$DIR" ] && die "path already exists: $DIR"
+
+echo "→ fetching origin"
+git -C "$REPO" fetch --quiet origin || die "git fetch origin failed in $REPO"
+git -C "$REPO" rev-parse --verify --quiet origin/main >/dev/null \
+  || die "origin/main does not exist in $REPO"
+
+mkdir -p "$ROOT" || die "cannot create $ROOT"
+echo "→ worktree $DIR  ($BRANCH off origin/main)"
+git -C "$REPO" worktree add -b "$BRANCH" "$DIR" origin/main --quiet \
+  || die "git worktree add failed"
+
+# .workspace/ — prefer the worktree's own copy so a repo's version of the initialiser wins, then
+# the one install.sh drops beside wt, then the harness checkout when wt is run straight from bin/.
+self="$(cd "$(dirname "$0")" && pwd)"
+init=""
+for c in "$DIR/.claude/hooks/ensure-workspace.sh" \
+         "$self/ensure-workspace.sh" \
+         "$self/../adopt/hooks/ensure-workspace.sh"; do
+  [ -x "$c" ] && { init="$c"; break; }
+done
+if [ -n "$init" ]; then
+  (cd "$DIR" && "$init") >/dev/null 2>&1
+  [ -f "$DIR/.workspace/MISSION.md" ] && echo "→ .workspace/" || echo "⚠ .workspace/ was not created"
+else
+  echo "⚠ no ensure-workspace.sh found — .workspace/ not created"
+fi
+
+if [ "$NO_SETUP" -eq 1 ]; then
+  echo "→ skipping make setup (--no-setup)"
+elif [ ! -f "$DIR/Makefile" ]; then
+  echo "→ no Makefile — skipping setup"
+elif ! make -C "$DIR" -n setup >/dev/null 2>&1; then
+  echo "→ no 'setup' target — skipping setup"
+else
+  echo "→ make setup"
+  if ! make -C "$DIR" setup; then
+    echo "" >&2
+    echo "✗ make setup FAILED in $DIR" >&2
+    echo "  The worktree is kept — setup is re-runnable. Fix the cause and run 'make setup' there." >&2
+    exit 1
+  fi
+fi
+
+echo "✅ $DIR"

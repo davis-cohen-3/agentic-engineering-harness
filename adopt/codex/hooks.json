@@ -50,6 +50,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/.claude/hooks/ensure-workspace.sh"
+          },
+          {
+            "type": "command",
             "command": "\"$(git rev-parse --show-toplevel)\"/.claude/hooks/spec-session-orient.sh"
           }
         ]

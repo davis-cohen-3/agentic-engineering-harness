@@ -64,6 +64,17 @@ for ev in d["hooks"].values():
             assert os.path.isfile(p), p
 PY
 
+echo "SessionStart ordering is load-bearing"
+python3 - "$T" <<'PY' && ok "ensure-workspace precedes orientation in BOTH providers" || no "orientation would run before the initialiser"
+import json,sys
+t=sys.argv[1]
+for f in (f"{t}/.claude/settings.json", f"{t}/.codex/hooks.json"):
+    cmds=[h["command"] for g in json.load(open(f))["hooks"]["SessionStart"] for h in g["hooks"]]
+    i=[n for n,c in enumerate(cmds) if "ensure-workspace" in c]
+    j=[n for n,c in enumerate(cmds) if "spec-session-orient" in c]
+    assert i and j and i[0] < j[0], f
+PY
+
 echo "the profile is single-sourced"
 grep -q '@AGENTS.md' "$T/CLAUDE.md" && ok "CLAUDE.md imports AGENTS.md rather than restating it" \
   || no "CLAUDE.md does not import AGENTS.md"

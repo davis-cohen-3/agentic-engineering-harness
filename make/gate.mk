@@ -4,7 +4,7 @@
 # itself: config is valid JSON and hooks are executable. A real repo DELETES this
 # and copies make/gate.example-python.mk or -ts.mk in its place.
 
-GATE_STEPS = validate-json validate-hooks test-install test-adopt
+GATE_STEPS = validate-json validate-hooks test-install test-adopt test-workspace
 
 validate-json:
 	@python3 -c "import json,sys; [json.load(open(f)) for f in ('.claude/settings.json','.mcp.json')]; print('→ json valid')"
@@ -26,3 +26,9 @@ test-install:
 test-adopt:
 	@./test/adopt.test.sh >/dev/null 2>&1 && echo "→ adopt acceptance passed" \
 	  || { ./test/adopt.test.sh; exit 1; }
+
+# wt cuts real worktrees, so this test pins XDG_CONFIG_HOME and cwd into a sandbox. It once
+# resolved the real registry and created worktrees in a real project; that must not recur.
+test-workspace:
+	@./test/workspace.test.sh >/dev/null 2>&1 && echo "→ workspace/wt acceptance passed" \
+	  || { ./test/workspace.test.sh; exit 1; }

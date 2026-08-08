@@ -200,9 +200,15 @@ if [ -f "$REPO/bin/wt" ]; then
   mkdir -p "$BIN_DIR"
   install -m 0755 "$REPO/bin/wt" "$BIN_DIR/wt"
   say "  installed → $BIN_DIR/wt"
+  # wt must be able to create .workspace/ in a repo that never adopted the harness, so it needs
+  # an initialiser outside any repo. Same source file copy.sh ships; a second destination.
+  if [ -f "$REPO/adopt/hooks/ensure-workspace.sh" ]; then
+    install -m 0755 "$REPO/adopt/hooks/ensure-workspace.sh" "$BIN_DIR/ensure-workspace.sh"
+    say "  installed → $BIN_DIR/ensure-workspace.sh (fallback for unadopted repos)"
+  fi
   case ":$PATH:" in *":$BIN_DIR:"*) ;; *) say "  ⚠ $BIN_DIR is not on PATH" ;; esac
 else
-  say "  ✗ $REPO/bin/wt does not exist yet — skipped (authored by T0.7)"
+  say "  ✗ $REPO/bin/wt not found — skipped"
 fi
 
 # ── Registry: migrate only into an absent target, never over an existing one.

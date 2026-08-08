@@ -50,6 +50,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/adopt/hooks/ensure-workspace.sh"
+          },
+          {
+            "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/adopt/hooks/spec-session-orient.sh"
           }
         ]
