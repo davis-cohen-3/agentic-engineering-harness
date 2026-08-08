@@ -10,7 +10,9 @@ validate-json:
 	@python3 -c "import json,sys; [json.load(open(f)) for f in ('.claude/settings.json','.mcp.json')]; print('→ json valid')"
 
 validate-hooks:
-	@for h in .claude/hooks/*.sh; do \
+	@n=0; for h in core/hooks/*.sh; do \
+		test -e "$$h" || { echo "✗ no hooks found at core/hooks/*.sh"; exit 1; }; \
 		test -x "$$h" || { echo "✗ not executable: $$h (chmod +x it)"; exit 1; }; \
+		n=$$((n+1)); \
 	done; \
-	echo "→ hooks executable"
+	echo "→ $$n hooks executable"
