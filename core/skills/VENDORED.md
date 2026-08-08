@@ -7,7 +7,7 @@ skills' own triggers, deliberately NOT stapled onto a vendored skill.
 
 | skill | source | commit | license | local changes |
 |-------|--------|--------|---------|---------------|
-| `grill-me` | mattpocock/skills · `skills/productivity/grill-me` | be55a79 | MIT © Matt Pocock | + local sections "Ground the grilling in this codebase" (→ `agent_docs/`) and "Record the thread" (→ `thoughts.md`); + a `STARTER_CHARACTER` marker line (🔥) |
+| `grill-me` | mattpocock/skills · `skills/productivity/grill-me` | be55a79 | MIT © Matt Pocock | + local sections "Ground the grilling in this codebase" (→ `docs/`) and "Record the thread" (→ `.workspace/LOG.md`); + a `STARTER_CHARACTER` marker line (🔥) |
 | `tdd` (+ `references/zombies.md`) | lexler/skill-factory · `output_skills/testing/tdd` | 83aee6a | Apache-2.0 © Lada Kesseler | `description` re-scoped to "new logic" + explicit NOT-for exclusions (don't auto-fire on trivial/config/docs/pure-refactor/spike); body verbatim (its 🔴/🌱/🌀 phase emojis double as the harness marker) |
 | `diagnose` (+ `scripts/hitl-loop.template.sh`) | mattpocock/skills · `skills/engineering/diagnose` | be55a79 | MIT © Matt Pocock | one line re-pointed: `/improve-codebase-architecture` handoff → **plan mode** (architecture = a design decision here, not an autonomous refactor); + a `STARTER_CHARACTER` marker line (🔬) |
 | `verify-before-done` | **blend** — discipline adapted from obra/superpowers · `skills/verification-before-completion` | 6fd4507 | MIT © Jesse Vincent | obra's Iron Law / Gate Function / Rationalization-Prevention spine + our own `make check` / run / verification-report section; + a `STARTER_CHARACTER` marker line (✅) |

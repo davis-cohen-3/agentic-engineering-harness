@@ -38,7 +38,7 @@ Understand the problem space through quick back-and-forth, BEFORE proposing any 
 - **No Read/Grep/Glob/web here** — keep it idea-level and quick; defer evidence-gathering to
   Phase 2's targeted pulls.
 - **Capture as you go:** log `IDEA` / `QUESTION` / `CONSTRAINT` entries under the
-  **Brainstorm thread** section of the spec's `thoughts.md` (shape: `specs/templates/t2/spec.thoughts.md`)
+  worktree's `.workspace/LOG.md` (one ordered ledger; `DECISION` / `QUESTION` entries)
   as they surface.
 - **Transition:** when the problem feels well understood, say so and check —
   *"Ready to lay out the options?"* Then announce `🧠 Phase 2: Diverge`.
@@ -54,12 +54,12 @@ Understand the problem space through quick back-and-forth, BEFORE proposing any 
 1. **Recommend one** with the one-line why; name the runner-up's single best idea worth
    grafting into the winner.
 2. **Get my pick** — do not silently proceed on your favorite.
-3. **Log the `DECISION`** under `thoughts.md`'s **Brainstorm thread**: the chosen approach
+3. **Log the `DECISION`** in `.workspace/LOG.md`: the chosen approach
    *and why the others lost*.
 
 ## Output
 A rough synthesis — the problem/goal we agreed on **plus** the chosen approach (and the
-options/trade-offs that lost) — captured in `thoughts.md`. Think of it as a **rough PRD**: not
+options/trade-offs that lost) — captured in `.workspace/LOG.md`. Think of it as a **rough PRD**: not
 yet nailed down (that's `grill-me`), not yet a spec (that's `write-plan`), but the aligned
 starting point both build on. This feeds `grill-me` → `write-plan` (which synthesizes the thread
 into the spec). Keep it tight — a decision, not a survey.

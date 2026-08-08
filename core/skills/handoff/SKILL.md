@@ -13,9 +13,10 @@ Write a handoff doc that lets a fresh agent continue without re-deriving everyth
 
 ## Where it goes (defined — never OS temp)
 - **If the work has a spec** (a `specs/<slug>.md` for what you're building): save to
-  `specs/<slug>.sessions/NNN_<summary>.md` — `NNN` = next number (`ls` the dir; start `001`),
+  a `.workspace/history/` record. Do NOT pick the filename yourself — run
+  `workspace-record handoff <slug>`, which creates it atomically and prints the path,
   `<summary>` = 3–5 word kebab-case. **Committed** — part of the durable work record, travels
-  via clone. (Shape: `specs/templates/t2/spec.sessions/001_*.md`.)
+  so two sessions writing in the same second cannot overwrite each other's record.
 - **Otherwise:** `.handoffs/<YYYY-MM-DD>-<slug>.md` (**gitignored** — your personal resume notes).
 
 ## What to write
@@ -28,7 +29,7 @@ Write a handoff doc that lets a fresh agent continue without re-deriving everyth
 
 ## Key decisions
 - <decision + why X over Y>
-  (if these came from planning, they also live in the spec's thoughts.md — link, don't duplicate)
+  (if these came from planning, they also live in `.workspace/LOG.md` — link, don't duplicate)
 
 ## What did NOT work   ← the most important section
 - <approach tried + why it failed / the dead end>.
@@ -48,8 +49,18 @@ Write a handoff doc that lets a fresh agent continue without re-deriving everyth
 ```
 
 ## Rules
-- **Reference, don't duplicate.** Point at the spec, PR, diff, ADRs, `thoughts.md` by path/URL —
+- **Reference, don't duplicate.** Point at the spec, PR, diff, ADRs, `.workspace/LOG.md` by path/URL —
   don't copy their content in.
 - **Redact secrets** — API keys, passwords, PII.
 - **State, not transcript** — paths/decisions/what-didn't-work, not the back-and-forth or verbose logs.
 - If the user named a focus for the next session, tailor **Next steps** to it.
+
+## Sync `MISSION.md` first
+
+Immediately **before** writing the history record, bring `.workspace/MISSION.md` up to date —
+current position, next action, blockers. You are the owner of this write (CONTRACT §2), and it
+rides an action you already chose to take.
+
+Do it first, not after: the record you are about to write is immutable, and a mission that
+disagrees with it is the thing the next session trips over. There is deliberately no "at session
+end" obligation — a SessionEnd hook can fire after the model can no longer act.

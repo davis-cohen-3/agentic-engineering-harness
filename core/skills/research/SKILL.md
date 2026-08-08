@@ -9,4 +9,5 @@ Its job:
 
 1. Investigate the question against **primary sources** — official docs, source code, specs, first-party APIs — not a secondary write-up of them. Follow every claim back to the source that owns it.
 2. Write the findings to a single Markdown file, citing each claim's source.
-3. Save it where the repo already keeps such notes; match the existing convention, and if there is none, put it somewhere sensible and say where.
+3. Save it as a `finding` record in the worktree's task memory. Do NOT choose the filename yourself — run `workspace-record finding <slug>`, which creates `.workspace/history/<utc>-finding-<slug>.md` atomically and prints the path. Records are immutable; if the research is superseded, write a new one rather than editing the old.
+4. Large raw evidence (a full API dump, a long transcript) goes in `.workspace/artifacts/` via `workspace-record artifact <name>` and is *linked* from the finding — artifacts are write-once, so an immutable record can never come to reference mutated evidence.

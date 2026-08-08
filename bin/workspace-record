@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# workspace-record — create a .workspace/history/ record or an artifacts/ file, atomically.
+#
+#   workspace-record handoff <slug>     -> .workspace/history/<utc>-handoff-<slug>.md
+#   workspace-record finding <slug>     -> .workspace/history/<utc>-finding-<slug>.md
+#   workspace-record artifact <name>    -> .workspace/artifacts/<name>
+#
+# Prints the path it created. Content is written by the caller.
+#
+# Creation is atomic (`set -o noclobber`, i.e. O_EXCL). If the name is taken the create FAILS and
+# we try -2, -3, … Check-then-write is a race and is not permitted: two sessions can pass the
+# check in the same second and one silently overwrites the other's immutable record.
+#
+# artifacts/ is write-once for the same reason — an immutable history record must never come to
+# reference mutated evidence.
+set -uo pipefail
+
+die() { printf 'workspace-record: %s\n' "$*" >&2; exit 1; }
+
+TYPE="${1:-}"; NAME="${2:-}"
+[ -n "$TYPE" ] && [ -n "$NAME" ] || die "usage: workspace-record {handoff|finding|artifact} <slug>"
+case "$NAME" in */*|*..*) die "slug must not contain '/' or '..': $NAME" ;; esac
+
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || die "not inside a git repository"
+
+case "$TYPE" in
+  handoff|finding)
+    dir="$root/.workspace/history"
+    stem="$(date -u +%Y%m%dT%H%M%SZ)-$TYPE-$NAME"
+    ext=".md" ;;
+  artifact)
+    dir="$root/.workspace/artifacts"
+    stem="${NAME%.*}"
+    [ "$NAME" = "$stem" ] && ext="" || ext=".${NAME##*.}" ;;
+  *) die "unknown record type: $TYPE (want handoff, finding or artifact)" ;;
+esac
+
+mkdir -p "$dir" || die "cannot create $dir"
+
+n=1
+while [ "$n" -le 50 ]; do
+  [ "$n" -eq 1 ] && path="$dir/$stem$ext" || path="$dir/$stem-$n$ext"
+  if ( set -o noclobber; : >"$path" ) 2>/dev/null; then
+    printf '%s\n' "$path"
+    exit 0
+  fi
+  n=$((n + 1))
+done
+die "could not create a unique name after 50 attempts in $dir"

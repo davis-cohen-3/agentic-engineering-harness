@@ -19,12 +19,12 @@ present architect and the absent builder.
 ## How to work
 1. **Ingest the planning thread — you SYNTHESIZE, you don't re-interview.** The context you
    write the spec FROM already exists: the `brainstorm` approach (the option picked + why),
-   the `grill-me` answers, and the `specs/<slug>.thoughts.md` thread (typed DECISION / QUESTION
+   the `grill` answers, and the worktree's `.workspace/LOG.md` (typed DECISION / QUESTION
    / IDEA / CONSTRAINT entries). That thread is the raw material; the spec is its resolved
    conclusion. Pull **Resolved decisions** and **Out of scope** straight from it. If any thread
    `QUESTION` is still open, the spec is NOT ready — go back to `grill-me`, don't guess.
 2. **Resolve the design** — the load-bearing planning work. Use `scout` (codebase) and
-   `researcher` (external) — grounded in `agent_docs/` (architecture + glossary) — to settle
+   `researcher` (external) — grounded in `docs/` (architecture + glossary) — to settle
    the approach + data model + contracts + integration points + error handling + **the test
    seam** (prefer an existing, highest-possible seam + a prior-art test to mirror), and fill
    **Approach & design** completely. The builder EXECUTES
@@ -41,10 +41,9 @@ present architect and the absent builder.
    Enumerate **Key user stories** (each is a candidate acceptance criterion — a completeness
    check), and carry **Out of scope** + **Resolved decisions** over from the planning thread
    (step 1). Set `status: draft` until it passes the Definition of Ready, then `status: ready`.
-   **Promote durable decisions:** if a Resolved decision is repo-level + hard-to-reverse + a
-   real trade-off (not task-local), write it as an ADR in `agent_docs/adr/` (copy
-   `0000-template.md`) and *reference* it from the spec instead of burying it — see
-   `agent_docs/adr/README.md`.
+   **Propose durable decisions — never write them.** If a Resolved decision is repo-level +
+   hard-to-reverse + a real trade-off (not task-local), say it looks like an ADR and ask. Write
+   one only on a yes; promotion is the user's call and ships as a separate PR.
 5. **Right-size:** collapse the template for T1 (goal + acceptance + one pointer);
    use the full form for T2/T3. Don't bloat a small task into a max spec — but
    **risk hotspots, the gate, and verify-before-done never scale down**.
@@ -70,3 +69,20 @@ present architect and the absent builder.
 A finished spec (the template, filled). This is the build-mode input — the orchestrator's
 dispatch prompt points each build run at it; the run reads it and executes (no loader skill).
 Hand it back; do not start building from plan mode.
+
+## Update `MISSION.md` as you write the spec
+
+You are the owner of this write (CONTRACT §2). As the spec lands, set the worktree's
+`.workspace/MISSION.md` frontmatter:
+
+```yaml
+state: building
+spec: specs/<slug>.md      # or specs/<epic>/README.md
+```
+
+This rides an action you already chose to take, so it costs no monitoring. A session that scopes
+without producing a spec correctly never leaves `scoping`.
+
+⚠ **T3 only:** you run once, in the *planning* worktree, and set that worktree's mission. The N
+build worktrees are cut afterwards from `origin/main` and each needs its own `spec:` set by hand —
+it is the one `MISSION.md` write with no automated owner. Say so when you hand back.

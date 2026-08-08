@@ -14,7 +14,7 @@ yes. **Zero findings is the common, correct outcome** — prefer silence to a we
 
 ## Scope to the current repo (no hardcoded paths)
 - Repo root = `git rev-parse --show-toplevel`; everything below is relative to it.
-- **Docs** = `CLAUDE.md`, `agent_docs/**`, `README*`, and contract docs under `specs/**`.
+- **Docs** = `CLAUDE.md`, `docs/**`, `README*`, and contract docs under `specs/**`.
 - **Code** = the real tree — source dirs, `Makefile` / `make/**` / package scripts, manifests.
 
 ## Bound the work — what changed
@@ -26,9 +26,9 @@ yes. **Zero findings is the common, correct outcome** — prefer silence to a we
 
 ## The checks — only concrete, verifiable drift
 For each changed code area, confirm the docs that describe it are still true:
-1. **Layout** — the directory/layer map in `CLAUDE.md` / `agent_docs/architecture.md` vs the real tree.
+1. **Layout** — the directory/layer map in `CLAUDE.md` / `docs/architecture.md` vs the real tree.
 2. **Commands** — documented `Makefile` targets, `make/*.mk`, package scripts, the gate vs what exists.
-3. **Responsibilities** — module/ownership claims in `agent_docs/**` vs the code they describe.
+3. **Responsibilities** — module/ownership claims in `docs/**` vs the code they describe.
 4. **Contracts** — a `specs/**` doc whose task has *shipped* but whose stated contract (paths, table
    names, enum values, endpoints) no longer matches the merged code.
 5. **Dead references** — a documented path / file / symbol / command that no longer exists.

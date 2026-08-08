@@ -206,6 +206,10 @@ if [ -f "$REPO/bin/wt" ]; then
     install -m 0755 "$REPO/adopt/hooks/ensure-workspace.sh" "$BIN_DIR/ensure-workspace.sh"
     say "  installed → $BIN_DIR/ensure-workspace.sh (fallback for unadopted repos)"
   fi
+  if [ -f "$REPO/bin/workspace-record" ]; then
+    install -m 0755 "$REPO/bin/workspace-record" "$BIN_DIR/workspace-record"
+    say "  installed → $BIN_DIR/workspace-record"
+  fi
   case ":$PATH:" in *":$BIN_DIR:"*) ;; *) say "  ⚠ $BIN_DIR is not on PATH" ;; esac
 else
   say "  ✗ $REPO/bin/wt not found — skipped"

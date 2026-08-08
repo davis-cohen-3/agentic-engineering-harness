@@ -84,6 +84,19 @@ wt demo --branch viaregistry >"$SB/o" 2>&1; is "exits 0" "$?" 0
 # rather than falling back to <container>/worktrees.
 rm -f "$XDG_CONFIG_HOME/agents/projects.yaml"
 
+echo "workspace-record (T0.9) — atomic, never overwrites"
+WR="$REPO/bin/workspace-record"
+( cd "$SB/proj" && for i in $(seq 40); do "$WR" handoff race >/dev/null 2>&1 & done; wait )
+made=$(ls "$SB/proj/.workspace/history" 2>/dev/null | grep -c 'handoff-race')
+is "40 concurrent writers in the same second all survive" "$made" 40
+dupes=$(ls "$SB/proj/.workspace/history" | grep 'handoff-race' | sort | uniq -d | wc -l | tr -d ' ')
+is "no two writers got the same name" "$dupes" 0
+( cd "$SB/proj" && a=$("$WR" artifact ev.log) && echo DATA >"$a" && "$WR" artifact ev.log >/dev/null )
+is "artifacts are write-once — the original is intact" "$(cat "$SB/proj/.workspace/artifacts/ev.log")" "DATA"
+[ -f "$SB/proj/.workspace/artifacts/ev-2.log" ] && ok "the second artifact request got a new name" || no "no -2 artifact"
+( cd "$SB/proj" && "$WR" handoff 'a/b' >/dev/null 2>&1 ); is "refuses a slug with a slash" "$?" 1
+( cd "$SB" && "$WR" handoff x >/dev/null 2>&1 ); is "refuses outside a git repo" "$?" 1
+
 echo "registry migration (T0.8) — and wt reads the result"
 cat >"$SB/depot-registry.yaml" <<YAML
 # a comment that must survive
