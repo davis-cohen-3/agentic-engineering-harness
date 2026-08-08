@@ -49,21 +49,14 @@ specs/
   templates/                         worked examples, one folder per tier
     t1/
       spec.md                        T1 — the FLOOR: goal + acceptance + one pointer, nothing more
-      spec.context.md                the scratch notepad (gitignored in real use; example only)
     t2/
       spec.md                        T2 — the full spec shape (filled; field labels = the guidance)
-      spec.thoughts.md               the planning thread (optional companion)
-      spec.sessions/001_*.md         a sample mid-build session handoff
-      spec.context.md                the scratch notepad (gitignored in real use; example only)
     t3/                              T3 — a DECOMPOSED epic (the folder IS the spec)
       README.md                      the epic index: shared context + ordered task list
       01-queue-table.md              sub-spec (one build run); 02, 03 follow with deps
-      01-queue-table.context.md      per-sub-spec scratch notepad (gitignored in real use; example)
       02-worker.md
       03-retry-dlq.md
   <slug>.md                          ← your real spec (copied from templates/t1/ or t2/)
-  <slug>.thoughts.md                 ← optional, co-located (committed)
-  <slug>.sessions/NNN_*.md           ← optional, co-located (committed)
   <epic>/                            ← a T3 epic (copied from templates/t3/)
   .context/<slug>.md                 ← scratch notepad — GITIGNORED, auto-created by the hook
 ```

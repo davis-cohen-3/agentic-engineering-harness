@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 # copy.sh — the MECHANICAL half of adopting this harness into a target repo.
 #
-# This file is the single source of truth for "what travels": the MANIFEST below
-# IS the definition of the portable harness. The adopt-harness SKILL drives this
-# (copy → then scout the target → draft the fills → verify); run standalone it
-# just does the deterministic copy + prints the fill checklist.
+# The MANIFEST below IS the definition of what travels. The adopt-harness SKILL drives this
+# (copy → scout the target → draft the fills → verify); standalone it just does the copy and
+# prints the fill checklist.
 #
 # Usage:  copy.sh <target-repo-path> [python|ts|none]
 #   arg2 = which gate.example to install as the repo's make/gate.mk (default: none).
 #
-# Idempotent-ish: never clobbers an existing CLAUDE.md or make/gate.mk in the target
-# (it warns and skips), so re-running can't silently overwrite filled-in work.
+# Re-runnable: never clobbers filled-in work. Anything a repo edits after adoption —
+# CLAUDE.md, AGENTS.md, make/gate.mk, .claude/settings.json, .codex/hooks.json — is written
+# only when absent, and skipped with a notice otherwise.
+#
+# Two providers, one repo. Claude reads .claude/; Codex reads AGENTS.md and .agents/skills.
+# The hook SCRIPTS are shared — one copy at .claude/hooks/, bound twice.
 set -euo pipefail
 
 TARGET="${1:-}"
@@ -19,69 +22,89 @@ GATE_FLAVOR="${2:-none}"
 [ -d "$TARGET" ] || { echo "✗ target is not a directory: $TARGET" >&2; exit 1; }
 TARGET="$(cd "$TARGET" && pwd)"
 
-# Harness root = three levels up from .claude/skills/adopt-harness/.
+# Harness root = four levels up from core/skills/adopt-harness/.
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 [ "$ROOT" = "$TARGET" ] && { echo "✗ refusing to adopt a repo into itself" >&2; exit 1; }
+[ -d "$ROOT/adopt" ] || { echo "✗ no adopt/ payload at $ROOT/adopt" >&2; exit 1; }
 
-# ── THE MANIFEST — the portable harness, exactly. Edit here when the boundary moves. ──
-# Paths are relative to the harness root. Directories copy recursively. Everything
-# NOT listed (docs/, README.md, agentic-coding-harness's own CLAUDE.md + make/gate.mk, .git) stays home.
-MANIFEST=(
-  CLAUDE.template.md          # → renamed to CLAUDE.md in the target (below)
-  .claude/FLOOR.md
-  .claude/settings.json
-  .claude/skills            # all skills incl. VENDORED.md; adopt-harness itself pruned below
-  .claude/agents
-  .claude/hooks
-  .claude/rules
-  .claude/commands
-  .mcp.json
-  Makefile                  # the BASE makefile; -includes the repo's make/gate.mk
-  make/gate.example-python.mk
-  make/gate.example-ts.mk
-  specs                     # README + template/ (scaffold the target fills)
-  agent_docs                # README + architecture/glossary templates + adr/
-  .gitignore
+note() { printf '  %s\n' "$*"; }
+
+# ── Copied unconditionally: scaffolding a repo never hand-edits. src → dest.
+FIXED=(
+  "adopt/Makefile:Makefile"
+  "adopt/make/gate.example-python.mk:make/gate.example-python.mk"
+  "adopt/make/gate.example-ts.mk:make/gate.example-ts.mk"
+  "adopt/hooks:.claude/hooks"
+  "adopt/specs:specs"
 )
-# The adopt tool itself must NOT travel — a repo never re-adopts. One exclusion rule.
-EXCLUDE_REL=".claude/skills/adopt-harness"
+
+# ── Written only when absent: a repo fills these in and re-adoption must not undo that.
+ONCE=(
+  "adopt/CLAUDE.template.md:CLAUDE.md"
+  "adopt/AGENTS.template.md:AGENTS.md"
+  "adopt/settings.json:.claude/settings.json"
+  "adopt/codex/hooks.json:.codex/hooks.json"
+)
 
 echo "→ adopting harness from $ROOT into $TARGET"
-for rel in "${MANIFEST[@]}"; do
-  src="$ROOT/$rel"
-  [ -e "$src" ] || { echo "  ⚠ missing in base, skipped: $rel"; continue; }
-  mkdir -p "$TARGET/$(dirname "$rel")"
-  cp -R "$src" "$TARGET/$(dirname "$rel")/"
+
+for pair in "${FIXED[@]}"; do
+  src="$ROOT/${pair%%:*}"; dst="$TARGET/${pair#*:}"
+  [ -e "$src" ] || { note "⚠ missing in base, skipped: ${pair%%:*}"; continue; }
+  mkdir -p "$(dirname "$dst")"
+  if [ -d "$src" ]; then
+    mkdir -p "$dst"
+    (cd "$src" && tar cf - .) | (cd "$dst" && tar xf -)
+  else
+    cp -p "$src" "$dst"
+  fi
+  note "→ ${pair#*:}"
 done
 
-# Prune the adopt tool from the copied tree.
-rm -rf "${TARGET:?}/$EXCLUDE_REL"
+for pair in "${ONCE[@]}"; do
+  src="$ROOT/${pair%%:*}"; dst="$TARGET/${pair#*:}"
+  [ -e "$src" ] || { note "⚠ missing in base, skipped: ${pair%%:*}"; continue; }
+  if [ -e "$dst" ]; then
+    note "⚠ ${pair#*:} already exists — left it"
+  else
+    mkdir -p "$(dirname "$dst")"
+    cp -p "$src" "$dst"
+    note "→ ${pair#*:}"
+  fi
+done
 
-# CLAUDE.template.md → CLAUDE.md (never clobber an existing profile).
-if [ -e "$TARGET/CLAUDE.md" ]; then
-  echo "  ⚠ target already has CLAUDE.md — left it; template copied as CLAUDE.template.md"
+chmod +x "$TARGET"/.claude/hooks/*.sh 2>/dev/null || true
+
+# ── Codex discovers PROJECT skills through .agents/skills. One directory, both providers.
+mkdir -p "$TARGET/.claude/skills"
+if [ -L "$TARGET/.agents/skills" ]; then
+  note "→ .agents/skills → .claude/skills (already linked)"
+elif [ -e "$TARGET/.agents/skills" ]; then
+  note "⚠ .agents/skills exists and is not a symlink — left it"
 else
-  mv "$TARGET/CLAUDE.template.md" "$TARGET/CLAUDE.md"
+  mkdir -p "$TARGET/.agents"
+  ln -s ../.claude/skills "$TARGET/.agents/skills"
+  note "→ .agents/skills → .claude/skills"
 fi
 
-# Gate overlay (Slot 2): install the chosen example as make/gate.mk (never clobber).
+# ── Gate overlay (Slot 2).
 if [ "$GATE_FLAVOR" != "none" ]; then
   ex="$TARGET/make/gate.example-$GATE_FLAVOR.mk"
   if [ ! -e "$ex" ]; then
-    echo "  ⚠ no gate example for '$GATE_FLAVOR' — skipping gate.mk install"
+    note "⚠ no gate example for '$GATE_FLAVOR' — skipping gate.mk install"
   elif [ -e "$TARGET/make/gate.mk" ]; then
-    echo "  ⚠ target already has make/gate.mk — left it"
+    note "⚠ make/gate.mk already exists — left it"
   else
     cp "$ex" "$TARGET/make/gate.mk"
-    echo "  → installed make/gate.mk from $GATE_FLAVOR example (edit GATE_STEPS to real checks)"
+    note "→ make/gate.mk from the $GATE_FLAVOR example (set GATE_STEPS to real checks)"
   fi
 fi
 
 cat <<'EOF'
 
 ✅ harness copied. Now fill the slots (the adopt-harness skill does this with you):
-  1. CLAUDE.md         — the <FILL> lines: what/stack/structure/conventions/hotspots
-  2. make/gate.mk      — set GATE_STEPS to this repo's REAL checks (+ custom linters)
-  3. agent_docs/       — architecture.md + glossary.md: how THIS codebase works
+  1. CLAUDE.md / AGENTS.md — the <FILL> lines: what/stack/structure/conventions/hotspots
+  2. make/gate.mk          — set GATE_STEPS to this repo's REAL checks
+  3. docs/                 — architecture.md + glossary.md: how THIS codebase works
 Then: `make setup && make check` on a fresh clone → green.
 EOF

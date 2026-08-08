@@ -4,14 +4,14 @@
 # itself: config is valid JSON and hooks are executable. A real repo DELETES this
 # and copies make/gate.example-python.mk or -ts.mk in its place.
 
-GATE_STEPS = validate-json validate-hooks test-install
+GATE_STEPS = validate-json validate-hooks test-install test-adopt
 
 validate-json:
 	@python3 -c "import json,sys; [json.load(open(f)) for f in ('.claude/settings.json','.mcp.json')]; print('→ json valid')"
 
 validate-hooks:
-	@n=0; for h in core/hooks/*.sh; do \
-		test -e "$$h" || { echo "✗ no hooks found at core/hooks/*.sh"; exit 1; }; \
+	@n=0; for h in core/hooks/*.sh adopt/hooks/*.sh; do \
+		test -e "$$h" || { echo "✗ no hooks found at $$h"; exit 1; }; \
 		test -x "$$h" || { echo "✗ not executable: $$h (chmod +x it)"; exit 1; }; \
 		n=$$((n+1)); \
 	done; \
@@ -21,3 +21,8 @@ validate-hooks:
 test-install:
 	@./test/install.test.sh >/dev/null 2>&1 && echo "→ install.sh acceptance passed" \
 	  || { ./test/install.test.sh; exit 1; }
+
+# copy.sh adopts a real disposable repo in a temp dir; nothing outside it is touched.
+test-adopt:
+	@./test/adopt.test.sh >/dev/null 2>&1 && echo "→ adopt acceptance passed" \
+	  || { ./test/adopt.test.sh; exit 1; }

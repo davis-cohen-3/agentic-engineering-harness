@@ -1,9 +1,10 @@
 # Settled decisions — harness standardization
 
-**Status:** ✅ **Closed.** Two decision passes are complete and every entry is answered. This file is
+**Status:** ✅ **Closed**, plus a **pass 3** of amendments raised while executing Wave 0. This file is
 the **authority** for intent; `CONTRACT.md` and the design review are reconciled *from* it.
-**Settled:** 2026-08-07 (pass 1, DEC-1…15) and 2026-08-08 (pass 2, A–J below).
-**Implementation posture:** nothing has been built, installed, moved, or migrated.
+**Settled:** 2026-08-07 (pass 1, DEC-1…15), 2026-08-08 (pass 2, A–J), 2026-08-08 (pass 3, K–L).
+**Implementation posture:** Wave 0 is in progress in the harness repo. Nothing has been installed,
+moved, or migrated on the machine; no other repository has been touched.
 
 ## Authority order
 
@@ -365,6 +366,57 @@ Four issues were found and all four are now fixed:
   review policy. The gate is not a review; E constrains reviewers only.
 - `code/` as a reference checkout contradicts current practice, not the contract. Flagged as a
   change of practice in CONTRACT §11.
+
+---
+
+## Pass 3 — amendments raised during implementation
+
+Decisions taken **after** the baseline was committed, because executing Wave 0 surfaced a
+contradiction the two earlier passes did not. Recorded here rather than absorbed silently: this
+file is the authority, so an amendment that lives only in code is the failure this epic exists to
+fix.
+
+### K — Hooks are repo-owned; machine-wide hook registration is deferred
+
+**Raised at T0.5.** `CONTRACT.md` §5 could not be executed as written. Two of its statements do
+not compose:
+
+- `core/hooks/` is part of the **machine** payload, and the six safety hooks "must be registered in
+  `~/.codex/hooks.json` — this is a **machine-level** gap only";
+- yet "hook command paths resolve from `$(git rev-parse --show-toplevel)`", with absolute machine
+  paths explicitly rejected as breaking on a repository move.
+
+`$(git rev-parse --show-toplevel)` only resolves to a real script if the scripts are **inside the
+repo**, so hooks cannot be both machine-installed and bound that way.
+
+**Settled 2026-08-08 by the developer: a project/repo owns its own hooks.** Machine-wide
+registration is a *maybe later*, explicitly not configured now.
+
+| | Disposition |
+| --- | --- |
+| The seven repo-level hooks | `adopt/hooks/` → `<target>/.claude/hooks/`, bound by both providers |
+| `inject-global-rules.sh` | stays in `core/hooks/` — it exists to inject personal rules **outside** projects and suppresses itself inside any repo owning `.claude/` or `CLAUDE.md`, so it is the one hook that is genuinely machine-level |
+| Claude binding | `adopt/settings.json` → `<target>/.claude/settings.json`, `$CLAUDE_PROJECT_DIR`-relative |
+| Codex binding | `adopt/codex/hooks.json` → `<target>/.codex/hooks.json`, resolved from `$(git rev-parse --show-toplevel)` |
+| Machine-wide safety hooks | **deferred** — Wave 1 T1.8 is descoped to `inject-global-rules.sh` |
+
+**Consequence, accepted:** the scripts are copied per repo, so a hook fix must be re-adopted into
+each repo rather than installed once. The compensating property is that a clone carries its own
+guardrails and does not depend on the machine having been provisioned.
+
+**"One script, two bindings" still holds** — it just means one copy *per repo* read by both
+providers, not one copy per machine.
+
+### L — The repo profile is single-sourced in `AGENTS.md`
+
+**Raised at T0.5**, which requires an adopted repo to be discoverable by both providers.
+`AGENTS.template.md` had no specified content, and the obvious shape — a second copy of
+`CLAUDE.template.md`'s profile — creates exactly the duplication this repo's central discipline
+forbids.
+
+**`AGENTS.md` is the profile; `CLAUDE.md` is a stub that `@AGENTS.md`.** Codex reads `AGENTS.md`
+natively and Claude follows the import, so every fact is written once. Claude-only guidance goes
+below the import.
 
 ---
 

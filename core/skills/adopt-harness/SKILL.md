@@ -2,7 +2,7 @@
 name: adopt-harness
 description: >-
   Use to onboard this portable harness into the CURRENT repository — copy the
-  traveling tree, then scout this codebase and draft its profile/gate/docs fills.
+  adopt/ payload, then scout this codebase and draft its profile/gate/docs fills.
   Trigger on "adopt the harness into this repo", "onboard this repo", "set up the
   harness here". Runs from a session IN the target repo, reading this skill by path
   from a local clone of the harness.
@@ -17,19 +17,22 @@ deterministic (`copy.sh`); the judgment is grounding the fills in how *this*
 codebase actually works. Do the copy, then use subagents to learn the repo, then
 draft the fills for the user to confirm.
 
-## 1. Copy the traveling tree
+## 1. Copy the adopt/ payload
 This session runs IN the target repo, pointed at a local clone of the harness (e.g.
 `~/agentic-coding-harness`). Ask the user for that harness path and the gate flavor
 (`python`/`ts`/`none`), then run the manifest copy with the target as `.` (here):
 
 ```
-<harness-path>/.claude/skills/adopt-harness/copy.sh . [python|ts|none]
+<harness-path>/core/skills/adopt-harness/copy.sh . [python|ts|none]
 ```
 
 `copy.sh` is self-locating (it finds the harness from its own path) and owns the manifest
-(the definition of what travels). It never clobbers an existing `CLAUDE.md` or `make/gate.mk`
-and prints the slots still to fill. **Adopt once per repo** — the rest of the tree is a
-recursive copy, so a re-run can overwrite already-filled files.
+(the definition of what travels). It installs both providers' hook bindings and the
+`.agents/skills → .claude/skills` symlink Codex needs to see project skills.
+
+**Re-running is safe.** Scaffolding is copied every time; anything a repo fills in —
+`CLAUDE.md`, `AGENTS.md`, `make/gate.mk`, and both binding files — is written only when
+absent and skipped with a notice otherwise.
 
 ## 2. Scout this repo (subagents — don't read it all yourself)
 You're already in the target, so `scout` runs against it natively (no `git -C` needed).
@@ -45,15 +48,20 @@ from the code. Keep exploration in the subagents — return the map, not the fil
 
 ## 3. Draft the fills, then confirm
 From scout's map, draft — and show the user before writing:
-- **`CLAUDE.md`** — replace every `<FILL>` (what / stack / structure / conventions / hotspots).
+- **`AGENTS.md`** — replace every `<FILL>` (what / stack / structure / conventions / hotspots).
+  This is THE profile: Codex reads it natively and `CLAUDE.md` imports it, so write each fact
+  once, here. Never restate it in `CLAUDE.md`.
 - **`make/gate.mk`** — set `GATE_STEPS` (and `SETUP_STEPS`) to the repo's REAL checks, ordered
   (e.g. build before typecheck if types are generated). Add custom linters here.
-- **`agent_docs/architecture.md` + `glossary.md`** — the system shape + domain terms.
+- **`docs/architecture.md` + `docs/glossary.md`** — the system shape + domain terms.
 Onboarding is judgment work: propose, let the user correct, then write. Don't invent facts the
 scout didn't find — flag gaps instead.
 
 ## 4. Verify (the portability + done check)
 - `make setup && make check` → green (the gate this repo just declared) — run natively, you're here.
-- Confirm the copied tree is clean: no `docs/`, no `recommended/` catalogs, no
-  `adopt-harness/`; `CLAUDE.md` is the filled profile; `.claude/FLOOR.md` byte-identical to base.
+- Confirm the copied tree is clean: no `recommended/` catalogs, no `adopt-harness/`, no retired
+  spec companions (`*.context.md`, `spec.thoughts.md`, `spec.sessions/`); `AGENTS.md` is the
+  filled profile and `CLAUDE.md` only imports it.
+- Confirm BOTH providers can see it: `.agents/skills` resolves to `.claude/skills`, and every
+  command in `.claude/settings.json` and `.codex/hooks.json` points at a file that exists.
 - Hand back: what was filled, what the gate ran, any slot left for the user.

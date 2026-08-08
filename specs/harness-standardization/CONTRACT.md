@@ -278,16 +278,26 @@ a target repo. They are never conflated:
 ```text
 core/                      → ~/.agents/
   skills/                  shared — both providers read SKILL.md
-  hooks/                   shared — one script, two bindings
+  hooks/                   inject-global-rules.sh only (see K)
   rules/                   injected by inject-global-rules.sh
   claude/agents/           4 × .md + frontmatter
   codex/agents/            4 × .toml + developer_instructions
 
 adopt/                     → a target repo
-  CLAUDE.template.md
-  AGENTS.template.md
+  AGENTS.template.md       → AGENTS.md — THE profile (see L)
+  CLAUDE.template.md       → CLAUDE.md — a stub that @AGENTS.md
+  hooks/                   → .claude/hooks/ — one copy, two bindings (see K)
+  settings.json            → .claude/settings.json   (Claude binding)
+  codex/hooks.json         → .codex/hooks.json       (Codex binding)
   Makefile, make/, specs/
 ```
+
+⚠ **Amended by decision K.** The six safety hooks and `spec-session-orient.sh` are **repo-owned**,
+not machine-installed: `$(git rev-parse --show-toplevel)` only resolves if the scripts are inside
+the repo, so hooks cannot both live at `~/.agents/hooks/` and be bound that way. `adopt/` carries
+them. `inject-global-rules.sh` stays machine-level because it exists to fire *outside* projects.
+Machine-wide registration of the safety hooks is deferred, so Wave 1 T1.8 is descoped.
+Also, a repo never carries a second copy of its profile — see decision L.
 
 Agent formats differ per provider, so the four agents exist as eight files. Any change to an agent
 touches both.
@@ -300,8 +310,12 @@ It **verifies provider capabilities** — that `WorktreeCreate` registers and th
 settings exist — rather than asserting a version number.
 
 **`adopt-harness/copy.sh`** copies `adopt/`, creates the `.agents/skills → .claude/skills` symlink
-that Codex requires, and installs the `.codex/` binding. It no longer copies `.claude/FLOOR.md`,
-`agent_docs/`, `spec.thoughts.md`, `spec.sessions/`, or `*.context.md`.
+that Codex requires, and installs both providers' hook bindings. It no longer copies
+`.claude/FLOOR.md`, `agent_docs/`, `spec.thoughts.md`, `spec.sessions/`, or `*.context.md`.
+
+Scaffolding is copied unconditionally; anything a repo fills in — `CLAUDE.md`, `AGENTS.md`,
+`make/gate.mk`, and both binding files — is written **only when absent**, so re-adoption can never
+undo filled-in work.
 
 `Makefile:install-global` is retired.
 
@@ -397,9 +411,10 @@ break it. depot's and smoke-screen's absolute machine paths break on any reposit
 approved. Installation is not complete until each hook is trusted **and observed to fire** — an
 untrusted hook is indistinguishable from a registered one.
 
-⚠ **Machine-level Codex currently runs only `inject-global-rules.sh`.** The six safety hooks must be
-registered in `~/.codex/hooks.json`. This is a machine-level gap only: depot and smoke-screen already
-register all six at the project level.
+**Machine-level Codex runs only `inject-global-rules.sh`, and that is now correct.** Under decision
+K the six safety hooks are registered **per repo** by `copy.sh`, which is what depot and
+smoke-screen already do; machine-wide registration is deferred, not missing. Wave 1 T1.8 is reduced
+to trusting the one machine hook and observing it fire.
 
 **Security review model:** `reviewer-security` moves from `sonnet` to `opus`. Its invocation is now
 rare and deliberate (§6), which is exactly when the strongest model is worth it.

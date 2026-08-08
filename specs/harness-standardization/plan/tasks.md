@@ -254,7 +254,7 @@ runtime state. Use a standalone script or a Codex session.
 | T1.5 | Retire `~/agents/`; Conductor archives → `~/.conductor/` | inventory before removing |
 | T1.6 | Activate the migrated registry | |
 | T1.7 | Configure both providers' worktree roots; register `WorktreeCreate` | falls back safely if a setting is absent |
-| T1.8 | Register the six safety hooks in `~/.codex/hooks.json` | **trust each hash AND observe each fire** |
+| T1.8 | Trust `inject-global-rules.sh` in `~/.codex/hooks.json` and observe it fire | **descoped by decision K** — the six safety hooks are repo-owned, registered by `copy.sh` |
 | T1.9 | Codex plugin-scoping experiment | in a **disposable** trusted repo |
 
 **Wave 1 acceptance:** both providers start cleanly in a neutral directory and in an adopted repo;

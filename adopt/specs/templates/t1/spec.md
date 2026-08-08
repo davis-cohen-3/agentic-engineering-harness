@@ -1,7 +1,7 @@
 <!-- Worked T1 spec — the FLOOR of how little is enough. A T1 is small with an OBVIOUS approach,
      so it collapses to goal + acceptance + one pointer: no design section, no decomposition,
-     no thoughts/sessions companions (nothing to design, one run does it) — though the gitignored
-     scratch notepad still applies to every tier (see spec.context.md). Copy to
+     no companion files (nothing to design, one run does it). Working notes live in the
+     worktree's .workspace/LOG.md, never in the spec. Copy to
      specs/<slug>.md. The moment there's a real design fork or >1 ordered task, it's a T2
      (../t2/spec.md), not a padded T1. -->
 ---
