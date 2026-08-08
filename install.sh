@@ -216,10 +216,14 @@ step "Registry"
 if [ -e "$REG_DST" ]; then
   say "  already present, left untouched → $REG_DST"
 elif [ -f "$REG_SRC" ]; then
-  mkdir -p "$(dirname "$REG_DST")"
-  cp -p "$REG_SRC" "$REG_DST"
-  say "  migrated $REG_SRC → $REG_DST"
-  say "  ⚠ paths inside it are NOT rewritten — that is T0.8. The original is untouched."
+  if [ -x "$REPO/install/migrate-registry.py" ]; then
+    "$REPO/install/migrate-registry.py" "$REG_SRC" "$REG_DST" || die "registry migration failed"
+  else
+    mkdir -p "$(dirname "$REG_DST")"
+    cp -p "$REG_SRC" "$REG_DST"
+    say "  copied unchanged (no migrate-registry.py) → $REG_DST"
+  fi
+  say "  the source registry is left untouched"
 else
   say "  no registry at $REG_SRC — nothing to migrate"
 fi

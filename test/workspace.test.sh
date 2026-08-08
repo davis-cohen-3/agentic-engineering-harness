@@ -84,6 +84,32 @@ wt demo --branch viaregistry >"$SB/o" 2>&1; is "exits 0" "$?" 0
 # rather than falling back to <container>/worktrees.
 rm -f "$XDG_CONFIG_HOME/agents/projects.yaml"
 
+echo "registry migration (T0.8) — and wt reads the result"
+cat >"$SB/depot-registry.yaml" <<YAML
+# a comment that must survive
+profiles:
+  claude:
+    launch: claude {prompt}
+
+projects:
+  demo:
+    repo: $SB/proj
+    worktree_root: $SB/old-root   # inline comment
+YAML
+src_before="$(shasum -a 256 "$SB/depot-registry.yaml" | cut -d' ' -f1)"
+"$REPO/install/migrate-registry.py" "$SB/depot-registry.yaml" "$SB/config/agents/projects.yaml" >/dev/null 2>&1
+is "source registry untouched" "$(shasum -a 256 "$SB/depot-registry.yaml" | cut -d' ' -f1)" "$src_before"
+grep -q 'a comment that must survive' "$SB/config/agents/projects.yaml" && ok "comments preserved" || no "comments lost"
+grep -q 'inline comment' "$SB/config/agents/projects.yaml" && ok "inline comments preserved" || no "inline comments lost"
+grep -q '^  depot:' "$SB/config/agents/projects.yaml" && ok "the depot project is added" || no "depot not added"
+python3 -c "import yaml,sys; d=yaml.safe_load(open('$SB/config/agents/projects.yaml')); assert d['profiles']['claude']; assert d['projects']['depot']" \
+  && ok "migrated file parses as YAML with profiles intact" || no "migrated file does not parse"
+wt demo --branch frommigrated >"$SB/o" 2>&1; is "wt resolves a project from the MIGRATED file" "$?" 0
+[ -d "$SB/old-root/frommigrated" ] && ok "wt honoured its worktree_root" || no "wt ignored worktree_root"
+"$REPO/install/migrate-registry.py" "$SB/depot-registry.yaml" "$SB/config/agents/projects.yaml" >"$SB/o" 2>&1
+grep -q 'left untouched' "$SB/o" && ok "never overwrites an existing target" || no "overwrote the target"
+rm -f "$SB/config/agents/projects.yaml"
+
 echo "wt — refusals"
 wt --branch feat/thing >"$SB/o" 2>&1; is "existing branch refuses" "$?" 1
 grep -q "$SB/worktrees/thing" "$SB/o" && ok "prints the existing path" || no "did not print the path"
