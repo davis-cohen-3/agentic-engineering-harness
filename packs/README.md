@@ -12,16 +12,23 @@ never seen, with zero configuration?* Everything here answers no, or is not inst
 | --- | --- | --- |
 | `project/` | Project | `domain-modeling`, `setup-matt-pocock-skills`, `wayfinder` |
 | `area/` | Area pack | `teach` |
-| `retired/` | Retired | `grill-with-docs`, `grilling`, `hatch-pet` |
+| `retired/` | Retired | `grill-me`, `grill-with-docs`, `grilling`, `hatch-pet`, `overview-fresh` |
 | `unassigned/` | **undecided** | `hot-mac` |
 
 ## `retired/` — preserved, never installed
 
-These are kept as **source**, not as installable skills. `grill-with-docs` and `grilling` are the
-inputs T0.6 merges into the single core `grill` (with `grill-me`, which was already versioned);
-`hatch-pet` is retired outright and has no successor. They are here because they existed only on
-an unversioned machine tree and deleting them would have been unrecoverable — not because anything
-still loads them.
+These are kept as **source**, not as installable skills. Nothing loads them, `install.sh` never
+publishes them, and `copy.sh` never copies them — "retired" is satisfied by their absence from
+every shipping path, not by deletion.
+
+**Every retired source lives here**, whether or not git history could recover it. `grilling`,
+`grill-with-docs` and `hatch-pet` existed only on an unversioned machine tree and would have been
+unrecoverable; `grill-me` and `overview-fresh` were already tracked. Keeping the rule uniform
+beats splitting the directory on an accident of each skill's history.
+
+`grill-me`, `grilling` and `grill-with-docs` are the three inputs T0.6 merged into the single core
+`grill`. `overview-fresh` is retired because its premise — a spec directory holding `overview.html`,
+`thoughts.md` and `decisions/` — no longer exists. `hatch-pet` is retired outright with no successor.
 
 ## `unassigned/hot-mac`
 
