@@ -376,6 +376,10 @@ contradiction the two earlier passes did not. Recorded here rather than absorbed
 file is the authority, so an amendment that lives only in code is the failure this epic exists to
 fix.
 
+**Both were re-confirmed by the developer on 2026-08-09**, after the implementation existed:
+K ("repos do own their own hooks") and L ("AGENTS.md is the single profile, CLAUDE.md imports
+it"). They are settled, not provisional.
+
 ### K — Hooks are repo-owned; machine-wide hook registration is deferred
 
 **Raised at T0.5.** `CONTRACT.md` §5 could not be executed as written. Two of its statements do

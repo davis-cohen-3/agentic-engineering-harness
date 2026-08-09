@@ -247,7 +247,7 @@ runtime state. Use a standalone script or a Codex session.
 
 | # | Task | Note |
 | --- | --- | --- |
-| T1.1 | `~/.config/git/ignore` += `.workspace/` | trivial, do first |
+| T1.1 | `~/.config/git/ignore` += `.workspace/` | ✅ **DONE 2026-08-09**, pulled forward out of wave order on the developer's instruction — Wave 0 proved that until it landed, any `git add -A` in a worktree committed task memory and propagated it to every worktree cut afterwards. Verified: `.workspace/` is ignored and survives `git add -A`. Backup at `~/.config/git/ignore.pre-workspace.bak` |
 | T1.2 | Establish `~/.config/agents/secrets.env`; update `~/.zshrc` and both rule files | never move secret *values* by script |
 | T1.3 | `install.sh --dry-run`; reconcile the two drifted skills by hand; install | the refusal is expected |
 | T1.4 | Undo the `~/.claude` symlink; symlink provider subdirs to `~/.agents/` | no live Claude session |

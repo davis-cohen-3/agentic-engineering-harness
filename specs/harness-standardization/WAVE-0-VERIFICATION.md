@@ -3,9 +3,13 @@
 **Branch:** `wave0/harness-standardization`, cut from `origin/main` @ `46521c1` (the authority
 baseline). **Status: T0.1 – T0.10 complete and verified. T0.11 – T0.16 not started.**
 
-Nothing was installed, moved, or migrated on the machine. No other repository was modified.
-Wave 0 remains fully reversible: every change is a commit on this branch, and nothing has been
-pushed.
+No other repository was modified. Wave 0 remains fully reversible: every change is a commit on
+this branch, and nothing has been pushed.
+
+**One machine change was made**, on the developer's instruction and out of wave order: Wave 1
+T1.1 added `.workspace/` to `~/.config/git/ignore` (see *Two incidents* below). Nothing else was
+installed, moved, or migrated — `~/.agents/` is untouched, there is no `~/.config/agents/`, and
+no `~/.local/bin/wt`.
 
 ## What "verified" means here
 
@@ -63,9 +67,18 @@ Recorded in `DECISIONS-PENDING.md` as **pass 3**, and `CONTRACT.md` reconciled t
    models the real mechanism — exclusion via a *global* gitignore, no repo `.gitignore` involved —
    and asserts `.workspace/` is neither tracked nor visible to git.
 
-⚠ **Incident 2 is a live Wave 1 risk, not just a test bug.** Until T1.1 adds `.workspace/` to
-`~/.config/git/ignore`, any `git add -A` in a worktree commits task memory and propagates it to
-every worktree cut afterwards. T1.1 is listed as "trivial, do first" — it is load-bearing.
+✅ **Incident 2 is closed at the source.** It was a live risk, not just a test bug: until
+`.workspace/` was globally ignored, any `git add -A` in a worktree committed task memory and
+propagated it to every worktree cut afterwards.
+
+**Wave 1 T1.1 was pulled forward and executed on 2026-08-09** on the developer's instruction —
+the one machine change made during Wave 0, and the only exception to "no machine changes".
+`~/.config/git/ignore` gained `.workspace/`. Verified empirically in a fresh repo: `MISSION.md`,
+`LOG.md` and `history/` records are all ignored, `git status -uall` is clean, and `git add -A`
+followed by `git ls-files` lists nothing. The pre-existing
+`**/.claude/settings.local.json` entry still matches. `core.excludesFile` is unset, so git uses
+this path by documented default — confirmed live before editing. Backup:
+`~/.config/git/ignore.pre-workspace.bak`. Reversible by restoring it.
 
 ## Findings recorded, not acted on
 
@@ -90,4 +103,43 @@ Not started. Dependencies are satisfied; each can begin immediately.
 | **T0.15** Acceptance scenario | Much of it is already executable: `test/adopt.test.sh` and `test/workspace.test.sh` cover adoption and the `wt` path end to end. What is missing is the **Codex** half and the human-run scoping→spec→build→ship→remove walk. |
 | **T0.16** Adversarial + security review | Explicitly requested for this wave. Give it real room — it is the review of the installer that writes the machine tree and the guards that gate every edit. |
 
-**Wave 1 must not start until T0.16 closes.**
+**Wave 1 must not start until T0.16 closes.** (T1.1 is the sole exception, already done — it was
+pulled forward because Wave 0 proved it was load-bearing.)
+
+---
+
+## Starting the next session
+
+Read, in this order: `DECISIONS-PENDING.md` → `CONTRACT.md` → `plan/tasks.md` → this file.
+Then continue at **T0.11**. Everything below is already settled — do not reopen it.
+
+**Branch:** `wave0/harness-standardization`, 12 commits, nothing pushed. `make check` is green
+and runs all 135 assertions.
+
+**What changed structurally** (the plan's older files describe the pre-restructure layout):
+
+```text
+core/     → ~/.agents/ via install.sh   skills/ rules/ claude/agents/ codex/agents/
+                                        hooks/ holds ONLY inject-global-rules.sh
+adopt/    → a target repo via copy.sh   AGENTS.template.md CLAUDE.template.md hooks/
+                                        settings.json codex/hooks.json Makefile make/ specs/
+packs/    → versioned, installed nowhere: project/ area/ retired/ unassigned/
+bin/      → wt, workspace-record        install/ → migrate-registry.py
+test/     → install, adopt, workspace   .claude/ → this repo's own project layer only
+```
+
+**Three decisions are settled and confirmed by the developer** — treat as authority alongside the
+baseline:
+
+- **K** — a repo owns its own hooks. Machine-wide safety-hook registration is deferred; Wave 1
+  T1.8 is descoped to `inject-global-rules.sh`. Re-confirmed 2026-08-09.
+- **L** — `AGENTS.md` is the single profile; `CLAUDE.md` is a stub that `@AGENTS.md`.
+  Re-confirmed 2026-08-09.
+- **T1.1 is done** — `.workspace/` is globally ignored.
+
+**Two habits this wave earned the hard way**, both now enforced by tests:
+
+1. Any test that invokes `wt` must pin **both** `XDG_CONFIG_HOME` and cwd into its sandbox.
+   Without both, `wt` resolves the real registry and cuts real worktrees in real projects.
+2. Never `git add -A` in a sandbox repo that has a `.workspace/` unless the sandbox also models
+   the global gitignore.
