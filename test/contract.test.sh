@@ -161,5 +161,49 @@ for p in pathlib.Path(".").rglob("*"):
 assert not bad, "\n".join(bad)
 PY
 
+echo "T0.15 — every claim maps to a step, every step has an observable"
+python3 - <<'PY' && ok "the acceptance scenario is internally complete" || no "the acceptance scenario has a gap"
+import pathlib,re,sys
+t=pathlib.Path("specs/harness-standardization/ACCEPTANCE-SCENARIO.md").read_text()
+claims,walk=t.split("## The walk",1)
+
+# 1. every step defined in the walk has a non-empty observable (last table cell)
+steps=set(); problems=[]
+for line in walk.splitlines():
+    m=re.match(r'\|\s*([A-K]\d+)\s*\|(.*)\|(.*)\|\s*$', line)
+    if not m: continue
+    step,do,obs=m.group(1),m.group(2).strip(),m.group(3).strip()
+    steps.add(step)
+    if not do:  problems.append(f"{step}: empty action")
+    if not obs: problems.append(f"{step}: NO OBSERVABLE")
+assert steps, "no steps parsed"
+
+# 2. every step cited in the claim map exists in the walk (ranges and bare sections expand)
+cited=set()
+for line in claims.splitlines():
+    cells=[c.strip() for c in line.split("|")]
+    if len(cells)<4 or not line.startswith("|"): continue
+    # Collect ANY bolded token, not just well-formed ones: a citation to a step that does not
+    # exist must fail loudly, not be filtered out by the pattern that looks for it.
+    for a,b in re.findall(r'\*\*([A-Za-z]+\d*)(?:[–-]([A-Za-z]*\d+))?\*\*', cells[3]):
+        if b:
+            lo,hi=int(re.sub(r'\D','',a)),int(re.sub(r'\D','',b))
+            cited |= {f"{a[0]}{n}" for n in range(lo,hi+1)}
+        else:
+            cited.add(a)
+missing={c for c in cited if not (c in steps or (len(c)==1 and any(s[0]==c for s in steps)))}
+problems += [f"claim map cites {c}, which the walk does not define" for c in sorted(missing)]
+
+# 3. no §7 row may have an empty Step cell
+for line in claims.splitlines():
+    cells=[c.strip() for c in line.split("|")]
+    if len(cells)>4 and cells[1]=="§7" and not cells[3]:
+        problems.append(f"unmapped §7 claim: {cells[2][:60]}")
+
+if problems:
+    print("\n".join("      "+p for p in problems), file=sys.stderr); sys.exit(1)
+print(f"      {len(steps)} steps, {len(cited)} citations, all resolved", file=sys.stderr)
+PY
+
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
