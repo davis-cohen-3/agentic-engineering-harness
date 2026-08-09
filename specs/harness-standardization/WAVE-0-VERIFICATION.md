@@ -21,15 +21,15 @@ Every acceptance line in `plan/tasks.md` was *observed*, not asserted. Where an 
 was a machine mutation that Wave 1 owns, it was exercised against a sandbox `$HOME` or a
 disposable git repo in a temp dir instead — stated per task below.
 
-Five suites, **265 assertions**, all passing and all wired into `make check`:
+Five suites, **284 assertions**, all passing and all wired into `make check`:
 
 | Suite | Covers | Assertions |
 | --- | --- | --- |
 | `test/install.test.sh` | T0.4 | 49 |
 | `test/adopt.test.sh` | T0.5 | 32 |
-| `test/workspace.test.sh` | T0.7 – T0.10, T0.8 shape guards | 80 |
-| `test/hooks.test.sh` | T0.11, T0.16 | 53 |
-| `test/contract.test.sh` | T0.12 – T0.15 | 51 |
+| `test/workspace.test.sh` | T0.7 – T0.10, T0.8 shape guards | 95 |
+| `test/hooks.test.sh` | T0.11, T0.16 | 56 |
+| `test/contract.test.sh` | T0.12 – T0.15 | 52 |
 
 `make check` also validates both providers' JSON config, that all 9 hooks are executable, and —
 since T0.16 — that **every** `test/*.test.sh` is actually wired into `GATE_STEPS`, because a new
@@ -128,7 +128,7 @@ Read, in this order: `DECISIONS-PENDING.md` → `CONTRACT.md` → `plan/tasks.md
 `T0.16-REVIEW.md`. Then begin **Wave 1**. Everything in Wave 0 is settled — do not reopen it.
 
 **Branch:** `wave0/harness-standardization`, 20 commits, nothing pushed. `make check` is green
-and runs all 265 assertions.
+and runs all 284 assertions.
 
 **Structure** (the plan's older files describe the pre-restructure layout):
 

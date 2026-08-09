@@ -292,10 +292,13 @@ exists and a rollback was rehearsed.
 | T2.1 | `depot`: `agent_docs/` → `docs/`; mark `workspace-memory-v1` superseded; adopt the registry path; replace absolute hook paths | Wave 1 |
 | T2.2 | `smoke-screen`: replace absolute hook paths; fold `smoke-worktrees/` into `worktrees/` | Wave 1 |
 | T2.3 | `melting-v2`: **per-file** documentation merge with a human; rewrite `workspace.md` and `agent-environment.md` off the Depot-owns-`.workspace/` model; clean the stray nested `worktrees/.claude/worktrees/` | Wave 1 |
+| T2.3a | **CRITICAL security fix — apply `../patches/melting-protect-secrets-move-to.patch`** to melting. Its `protect-secrets.sh` does not path-check a `*** Move to:` rename destination, so a Codex agent can write a benign file and rename it onto `.env`. Verified diff, `git apply --check` clean against `origin/main`. **No dependency on the docs merge — do it first.** ⚠ Does not apply to `chore/melting-v2-docs-harness` as it stands: that branch is 27 commits behind and predates the `apply_patch` fallback. See `../patches/README.md` | Wave 1 |
 | T2.4 | Run T0.15 end-to-end on both providers | T2.1–T2.3 |
 
 **Wave 2 acceptance:** each project's own gate is green; the acceptance scenario passes on both
-providers; no project is declared aligned because a file merely exists.
+providers; no project is declared aligned because a file merely exists. **And melting's
+`protect-secrets.sh` is observed to BLOCK (exit 2) a real `*** Move to:` payload** — run it, do
+not infer it from the patch having been applied.
 
 ---
 

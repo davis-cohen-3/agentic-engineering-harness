@@ -213,6 +213,18 @@ for p in pathlib.Path(".").rglob("*"):
 assert not bad, "\n".join(bad)
 PY
 
+echo "a prepared cross-repo patch is wired into the plan that must apply it"
+# A fix for another repo that lives only in a review document is one distraction from being
+# skipped. Every patch must be named by plan/tasks.md, or it will not be applied.
+python3 - <<'PY' && ok "every file in patches/ is referenced by plan/tasks.md" || no "a prepared patch is not wired into the plan"
+import pathlib,sys
+plan=pathlib.Path("specs/harness-standardization/plan/tasks.md").read_text()
+patches=[p for p in pathlib.Path("specs/harness-standardization/patches").glob("*.patch")]
+assert patches, "no patches to check"
+missing=[p.name for p in patches if p.name not in plan]
+assert not missing, f"unreferenced: {missing}"
+PY
+
 echo "T0.15 — every claim maps to a step, every step has an observable"
 python3 - <<'PY' && ok "the acceptance scenario is internally complete" || no "the acceptance scenario has a gap"
 import pathlib,re,sys
