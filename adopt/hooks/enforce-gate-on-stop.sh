@@ -23,8 +23,11 @@ else
   session="nosession"   # jq missing -> fail open below
 fi
 
-# No gate defined? nothing to enforce.
-{ [ -f Makefile ] && grep -q '^check:' Makefile; } || exit 0
+# No gate defined? nothing to enforce. RESOLVE the target rather than grepping for `^check:` —
+# a Makefile that only `include`s another one (as the harness's own three-line root Makefile does)
+# has no literal check: recipe, and a text match silently disables this hook in exactly the repo
+# where a regression is costliest.
+make -n check >/dev/null 2>&1 || exit 0
 
 state="${TMPDIR:-/tmp}/harness-gate-${session}"
 out="${TMPDIR:-/tmp}/harness-gate-out-${session}"

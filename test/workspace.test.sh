@@ -165,9 +165,38 @@ wt --branch badsetup >"$SB/o" 2>&1; is "failing setup exits non-zero" "$?" 1
 grep -q 'kept' "$SB/o" && ok "says the worktree was kept" || no "did not say so"
 [ -f "$SB/worktrees/badsetup/.workspace/MISSION.md" ] && ok ".workspace/ survives a setup failure" || no ".workspace/ missing"
 
+echo "wt — run from INSIDE a worktree (the normal case: code/ is only a reference checkout)"
+# --show-toplevel returns the CURRENT worktree, so resolving the repo that way nests
+# worktrees/worktrees/ and makes the registry lookup miss. wt must find the MAIN checkout.
+printf 'setup:\n\t@echo ok >setup.log\n' >"$SB/proj/Makefile"
+git -C "$SB/proj" add -A && git -C "$SB/proj" commit -qm "restore setup" && git -C "$SB/proj" push -q origin main
+( cd "$SB/worktrees/thing" && "$WT" --branch fromworktree >"$SB/o" 2>&1 )
+is "wt run from inside a worktree exits 0" "$?" 0
+[ -d "$SB/worktrees/fromworktree" ] && ok "it lands beside its siblings, not nested" \
+  || no "landed elsewhere: $(grep -o '/.*' "$SB/o" | tail -1)"
+[ -d "$SB/worktrees/worktrees" ] && no "created a nested worktrees/worktrees/" || ok "no nested worktrees/worktrees/"
+[ -f "$SB/worktrees/fromworktree/.workspace/MISSION.md" ] && ok "and it still got .workspace/" || no ".workspace/ missing"
+
+echo "wt — a RELATIVE worktree_root cannot half-create a worktree"
+# git -C resolves a relative path against the repo; every later check resolves it against the
+# caller's cwd. Unabsolutised, the worktree lands where nothing else looks and wt reports success
+# having silently skipped both .workspace/ and setup.
+mkdir -p "$SB/config/agents"
+cat >"$SB/config/agents/projects.yaml" <<YAML
+projects:
+  rel:
+    repo: $SB/proj
+    worktree_root: relroot
+YAML
+( cd "$SB" && "$WT" rel --branch relbranch >"$SB/o" 2>&1 )
+is "a relative worktree_root still exits 0" "$?" 0
+[ -f "$SB/relroot/relbranch/.workspace/MISSION.md" ] && ok "resolved against the caller's cwd, and .workspace/ was created" \
+  || no "half-created: $(cat "$SB/o")"
+[ -d "$SB/proj/relroot" ] && no "the worktree landed INSIDE the main checkout" || ok "nothing nested inside the main checkout"
+rm -f "$SB/config/agents/projects.yaml"
+
 echo "wt — unadopted repo"
 [ -d "$SB/worktrees/thing/.claude" ] && no "the disposable repo was adopted" || ok "repo is unadopted"
-ok "an unadopted repo still got .workspace/ (asserted above)"
 
 echo ".workspace/ never enters git"
 git -C "$SB/proj" status --porcelain --untracked-files=all 2>/dev/null | grep -q '.workspace' \

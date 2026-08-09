@@ -33,24 +33,31 @@ runs the machine- and provider-dependent remainder rather than re-doing work.
 
 Every claim CONTRACT §7 makes, and the step that exercises it. Nothing in §7 is unmapped.
 
+`test/contract.test.sh` enforces two halves of this mechanically: every step below carries a
+non-empty observable, and every step this table cites exists. It also checks that each of §7's
+nine claim markers is represented here, so a new §7 guarantee cannot land unmapped. What it
+cannot check is whether a mapping is *apt* — that a cited step genuinely observes the claim. That
+judgement was made by reading §7 line by line, and the Depot rows above are the correction it
+produced on the first pass.
+
 | § | Claim | Step | Already automated by |
 | --- | --- | --- | --- |
 | §7 | Default T0–T2 journey is `wt` → build → ship | **C**, **H** | — |
 | §7 | `MISSION.md` stays `scoping` when `write-plan` never runs | **C3** | `workspace.test.sh` |
 | §7 | T3 adds spec-merge-first; parallel worktrees need the spec on `origin/main` | **G** | — |
 | §7 | `code/` is a reference checkout; work happens in `worktrees/`, a peer | **B2** | — |
-| §7 | Three creators, one location | **C1**, **D1**, **E1** | — |
+| §7 | Three creators, one location — `wt`, Depot, both providers | **C1**, **C4**, **D1**, **E1** | — |
 | §7 | `wt` resolves the registry, or `git rev-parse --show-toplevel` inside a repo | **C1** | `workspace.test.sh` |
 | §7 | `wt` fetches and branches from `origin/main`; no `--base` | **C1** | `workspace.test.sh` |
 | §7 | `wt` creates `.workspace/` and runs `make setup` unless `--no-setup` | **C2** | `workspace.test.sh` |
 | §7 | Claude's `WorktreeCreate` does the same two jobs | **D1** | — (needs Wave 1 T1.7) |
-| §7 | Init is **eager** for `wt`, Depot, Claude | **C2**, **D1** | partly |
+| §7 | Init is **eager** for `wt`, Depot, Claude | **C2**, **C5**, **D1** | partly |
 | §7 | Init is **lazy** for Codex — no `WorktreeCreate` equivalent | **E1** | — |
 | §7 | `ensure-workspace.sh` on SessionStart is the net for everything else | **F1** | `workspace.test.sh` |
 | §7 | SessionStart orients read-only: state, next action, spec path, filenames, `git status` | **D2**, **E2** | `workspace.test.sh` |
 | §7 | Orientation prints **filenames only, never contents** | **F3** | `workspace.test.sh` |
 | §7 | Hook order is load-bearing — `ensure-workspace` before orientation, **both** providers | **F2** | `adopt.test.sh` |
-| §7 | Cleanup is owned by the creator | **I1–I3** | — |
+| §7 | Cleanup is owned by the creator | **I1–I4** | — |
 | §7 | Provider automatic cleanup stays enabled | **I4** | — |
 | §7 | A retention sweep can take `.workspace/` and `LOG.md` with it; the PR body is the only bridge | **H3**, **I4** | — |
 | §7 | Phone path: a phone-attached session fires the machine's SessionStart hook | **J** | — |
@@ -99,25 +106,28 @@ Adjacent claims the walk also has to prove, from the other sections:
 > **Automated:** B3 and B4 are `adopt.test.sh` (32 assertions) and `workspace.test.sh`. Wave 2 re-runs
 > them against a repo in the *real* container layout, which the suites cannot model.
 
-### C — `wt` creates a worktree (creator 1 of 3)
+### C — `wt` and Depot create worktrees (creators 1 and 2)
 
 | # | Do | Observable |
 | --- | --- | --- |
 | C1 | `wt app --branch feat/thing` | branches from `origin/main`; the directory is the **last path segment** (`thing`); refuses with a non-zero exit and prints the existing path if the branch or directory already exists |
 | C2 | `ls <container>/code/worktrees/thing/.workspace/` | `MISSION.md` exists and `make setup` already ran — init is **eager** |
 | C3 | `head -3 .../MISSION.md` | `state: scoping`, `spec: null` — and it stays that way through a T0–T2 build, because `write-plan` never runs |
+| C4 | Create a worktree through **Depot** | it lands in the same `worktrees/` root — Depot reads the same registry `worktree_root` |
+| C5 | `ls .../.workspace/` in the Depot-created worktree | `MISSION.md` exists. **Depot did not create it** — Depot never creates, writes, validates, repairs, or interprets `.workspace/` (CONTRACT §1); the SessionStart net did, on first session |
 
-> **Automated:** every refusal case and the ten-run idempotency are in `workspace.test.sh`. What Wave 2
-> adds is the **real registry** and the real container layout.
+> **Automated:** every refusal case and the ten-run idempotency are in `workspace.test.sh`, plus
+> `wt` run from inside a worktree and a relative `worktree_root`. What Wave 2 adds is the **real
+> registry**, the real container layout, and Depot itself — which no suite can stand in for.
 
-### D — Claude creates a worktree (creator 2 of 3) — eager
+### D — Claude creates a worktree (creator 3, provider 1) — eager
 
 | # | Do | Observable |
 | --- | --- | --- |
 | D1 | Create a worktree from Claude | it lands in `<container>/code/worktrees/`, and `WorktreeCreate` has already run `ensure-workspace.sh` + `make setup` — `.workspace/` and installed deps exist **before** the first session |
 | D2 | Open a session in it | orientation prints state, next action, spec path, the newest handoff **filename**, finding **filenames**, and a brief `git status` |
 
-### E — Codex creates a worktree (creator 3 of 3) — lazy, by design
+### E — Codex creates a worktree (creator 3, provider 2) — lazy, by design
 
 | # | Do | Observable |
 | --- | --- | --- |

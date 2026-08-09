@@ -16,8 +16,11 @@ ok()   { pass=$((pass+1)); printf '  ✓ %s\n' "$1"; }
 no()   { fail=$((fail+1)); printf '  ✗ %s\n' "$1"; }
 is()   { [ "$2" = "$3" ] && ok "$1" || no "$1 (got '$2', want '$3')"; }
 
-run()  { HOME="$SB" "$REPO/install.sh" "$@" >"$SB/out" 2>&1; echo $?; }
-runR() { HOME="$SB" "$SB/repo/install.sh" "$@" >"$SB/out" 2>&1; echo $?; }
+# XDG_CONFIG_HOME must be pinned as well as HOME: install.sh resolves the registry through
+# ${XDG_CONFIG_HOME:-$HOME/.config}, so pinning only HOME lets a machine that sets XDG read the
+# real depot registry and WRITE the real ~/.config/agents/projects.yaml — the file Wave 1 owns.
+run()  { HOME="$SB" XDG_CONFIG_HOME="$SB/.config" "$REPO/install.sh" "$@" >"$SB/out" 2>&1; echo $?; }
+runR() { HOME="$SB" XDG_CONFIG_HOME="$SB/.config" "$SB/repo/install.sh" "$@" >"$SB/out" 2>&1; echo $?; }
 digest() { (cd "$1" && find . -type f | LC_ALL=C sort | xargs shasum -a 256 | shasum -a 256 | cut -d' ' -f1); }
 outhas() { grep -q "$1" "$SB/out"; }
 

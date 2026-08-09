@@ -2,7 +2,9 @@
 # PreToolUse(Bash) guardrail: block git commit/push while on the default branch.
 # Contract: exit 0 = allow, exit 2 = BLOCK and feed stderr back to Claude.
 # Dependency: jq (parses the hook's JSON stdin). Falls open if jq is missing.
-set -euo pipefail
+set -uo pipefail
+# NOTE: deliberately no `set -e`. A failing jq on malformed stdin would abort before the
+# script's own `exit 0`, returning jq's exit 5 — outside the 0-allow / 2-block contract.
 
 command -v jq >/dev/null 2>&1 || exit 0   # fail OPEN: never block work over a missing tool
 

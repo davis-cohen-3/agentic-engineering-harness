@@ -1,0 +1,74 @@
+{
+  "_comment": "This repo's OWN Codex binding. It mirrors .claude/settings.json and, like it, points at adopt/hooks/ rather than .claude/hooks/ — the harness consumes its own adopt/ payload instead of keeping a second copy. adopt/codex/hooks.json is the version that TRAVELS to an adopted repo, where the same scripts land at .claude/hooks/. Commands resolve from the repo root so they survive a move and a subdirectory cwd.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/adopt/hooks/block-default-branch-commit.sh"
+          },
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/adopt/hooks/block-dangerous-bash.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Edit|Write|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/adopt/hooks/protect-secrets.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/adopt/hooks/flag-comment-bloat.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/adopt/hooks/enforce-gate-on-stop.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/adopt/hooks/ensure-workspace.sh"
+          },
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/adopt/hooks/spec-session-orient.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)\"/adopt/hooks/collab-reminders.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

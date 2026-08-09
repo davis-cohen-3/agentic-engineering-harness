@@ -83,6 +83,16 @@ run "$H/protect-secrets.sh" "$(j patch "$P_DEL")";  is 2 "Codex apply_patch dele
 run "$H/protect-secrets.sh" "$(j patch_nested "$P_NST")"
 is 2 "the fallback is key-name independent — it flattens tool_input, not a known field"
 
+echo "protect-secrets.sh — rename destinations (the *** Move to: directive)"
+# codex 0.147.0's binary carries four path-bearing directives, not three. A rename destination
+# that is not path-checked lets an agent write a benign file and move it onto a secret path.
+P_MV_ENV="$(patch "$(printf '*** Update File: %s/notes.txt\n*** Move to: %s/.env\n@@\n-a\n+b' "$T" "$T")")"
+P_MV_KEY="$(patch "$(printf '*** Update File: %s/notes.txt\n*** Move to: %s/deploy/id_rsa\n@@\n-a\n+b' "$T" "$T")")"
+P_INDENT="$(patch "$(printf '  *** Add File: %s/.env.staging\n+A=1' "$T")")"
+run "$H/protect-secrets.sh" "$(j patch "$P_MV_ENV")"; is 2 "renaming a file ONTO .env blocks"
+run "$H/protect-secrets.sh" "$(j patch "$P_MV_KEY")"; is 2 "renaming a file ONTO a private key blocks"
+run "$H/protect-secrets.sh" "$(j patch "$P_INDENT")"; is 2 "an indented header cannot slip the ^ anchor"
+
 echo "protect-secrets.sh — degradation"
 run "$H/protect-secrets.sh" "$(j none)";            is 0 "an empty tool_input allows"
 mkdir -p "$SB/nojq"
@@ -113,6 +123,16 @@ run "$H/flag-comment-bloat.sh" "$(j write "$T/a.py" 'x=1')";           is 0 "exi
 run "$H/flag-comment-bloat.sh" "$(j patch "$P_OK")";                   is 0 "no-ops cleanly on a Codex apply_patch"
 [ -z "$OUT" ] && ok "stays silent on Codex rather than emitting a bogus nudge" || no "emitted output on Codex: $OUT"
 
+echo "every hook honours the 0-allow / 2-block contract on MALFORMED stdin"
+# A `set -e` script aborts on jq's parse failure and returns jq's exit 5, which is neither allow
+# nor block and whose handling is provider-dependent. Six hooks got this right; two did not.
+printf '{"tool_input": {"command": ' >"$SB/truncated.json"
+for hook in "$H"/*.sh; do
+  (cd "$T" && "$hook" <"$SB/truncated.json" >/dev/null 2>&1); rc=$?
+  case "$rc" in 0|2) ok "$(basename "$hook") stays in contract (exit $rc)" ;;
+                *)   no "$(basename "$hook") returned $rc on malformed stdin" ;; esac
+done
+
 echo "collab-reminders.sh + enforce-gate-on-stop.sh — event payloads carry no tool_input"
 run "$H/collab-reminders.sh" "$(j none)";                              is 0 "collab-reminders allows"
 printf '%s' "$OUT" | grep -q additionalContext && ok "collab-reminders injects a reminder" || no "collab-reminders emitted nothing"
@@ -122,6 +142,15 @@ printf 'check:\n\t@false\n' >"$T/Makefile"
 run "$H/enforce-gate-on-stop.sh" "$(j none)";                          is 2 "stop-gate BLOCKS on a red gate"
 printf 'check:\n\t@true\n' >"$T/Makefile"
 run "$H/enforce-gate-on-stop.sh" "$(j none)";                          is 0 "stop-gate allows on a green gate"
+# The gate must be RESOLVED, not grepped for: the harness's own root Makefile only `include`s
+# another one and has no literal `^check:`, so a text match silently disabled this hook in exactly
+# the repo where a regression costs most.
+printf '# no recipe here\ninclude real.mk\n' >"$T/Makefile"
+printf 'check:\n\t@false\n' >"$T/real.mk"
+run "$H/enforce-gate-on-stop.sh" "$(j none)";  is 2 "BLOCKS on a red gate reached only through an include"
+printf 'check:\n\t@true\n' >"$T/real.mk"
+run "$H/enforce-gate-on-stop.sh" "$(j none)";  is 0 "allows on a green gate reached only through an include"
+rm -f "$T/real.mk"
 mv "$SB/Makefile.orig" "$T/Makefile"
 
 echo "binding path resolution — the acceptance line is 'not just the repo root'"

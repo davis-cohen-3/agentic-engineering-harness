@@ -289,6 +289,7 @@ adopt/                     → a target repo
   hooks/                   → .claude/hooks/ — one copy, two bindings (see K)
   settings.json            → .claude/settings.json   (Claude binding)
   codex/hooks.json         → .codex/hooks.json       (Codex binding)
+  docs/                    → docs/ — INDEX.md, architecture.md, glossary.md, adrs/ (see §4)
   Makefile, make/, specs/
 ```
 
@@ -304,7 +305,9 @@ touches both.
 
 **`install.sh`** builds into a temp tree and swaps; keeps one backup (`~/.agents.prev`); is
 idempotent; **prunes only with `--prune`**; **refuses to run when a file in `~/.agents/` differs from
-its source**, naming the file; supports `--dry-run`; migrates `~/.config/depot/projects.yaml` →
+its source**, naming the file; supports `--dry-run` and `--force` (the documented escape hatch that
+installs over a local edit and loses it — the backup is the only recovery); migrates
+`~/.config/depot/projects.yaml` →
 `~/.config/agents/projects.yaml` only when the target is absent; installs `wt` to `~/.local/bin/`.
 It **verifies provider capabilities** — that `WorktreeCreate` registers and the worktree-location
 settings exist — rather than asserting a version number.

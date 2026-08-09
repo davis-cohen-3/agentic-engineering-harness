@@ -7,9 +7,14 @@
 #
 # A HOOK, not a permission rule, so it survives a Warren `--dangerously-skip-permissions` run.
 #
-# The apply_patch fallback below is harvested verbatim from melting `origin/main`,
-# blob 7687e47a0caa6a75cdf880cf8ae1e258c9dec979 (commit 4d554c16, 2026-08-02). Commit 95fa9b1
-# lives only on `origin/agent/codex-hook-matcher` and is deliberately NOT harvested.
+# The apply_patch fallback below is harvested from melting `origin/main`, blob
+# 7687e47a0caa6a75cdf880cf8ae1e258c9dec979 (commit 4d554c16, 2026-08-02). Commit 95fa9b1 lives
+# only on `origin/agent/codex-hook-matcher` and is deliberately NOT harvested.
+#
+# ONE DEVIATION from that blob, deliberate: it parses only the three `*** ... File:` headers, so a
+# `*** Move to:` rename destination was never path-checked — an agent could write a benign file and
+# rename it onto `.env`. Confirmed against codex 0.147.0, whose binary carries all four directives.
+# Melting carries the same gap and needs the same fix.
 set -uo pipefail
 
 command -v jq >/dev/null 2>&1 || exit 0   # fail OPEN
@@ -28,8 +33,11 @@ content="$(printf '%s' "$input" | jq -r '.tool_input.content // .tool_input.new_
 if [ -z "$path" ] && [ -z "$content" ]; then
   content="$(printf '%s' "$input" | jq -r '[.tool_input | .. | strings] | join("\n")' 2>/dev/null)"
 fi
+# `Move to:` is a rename destination: without it an agent writes an innocuous file and renames it
+# onto a secret path, and the guard never sees where it landed. Leading whitespace is tolerated so
+# an indented header cannot slip the anchor.
 paths="$path
-$(printf '%s' "$content" | sed -nE 's/^\*\*\* (Add|Update|Delete) File: //p')"
+$(printf '%s' "$content" | sed -nE 's/^[[:space:]]*\*\*\* (Add|Update|Delete) File: //p; s/^[[:space:]]*\*\*\* Move to: //p')"
 
 # 1. Sensitive PATHS — never read or write these.
 while IFS= read -r p; do

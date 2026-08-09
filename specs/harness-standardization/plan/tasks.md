@@ -86,8 +86,13 @@ file in `~/.agents/` differs from source**, naming it; `--dry-run`; migrates the
 the target is absent; installs `wt` to `~/.local/bin/`; **verifies** `WorktreeCreate` and the
 worktree-location settings rather than asserting a version.
 
-**Acceptance:** `--dry-run` against the current machine reports the two drifted skills and exits
+**Acceptance:** `--dry-run` against the current machine reports every drifted file and exits
 non-zero; a second run after reconciliation succeeds; running twice produces an identical tree.
+
+⚠ **Corrected 2026-08-09, after T0.16 re-measured it.** This line originally predicted "the two
+drifted skills". By the end of Wave 0 the real count is **8**, because Wave 0 legitimately rewrote
+six of them (T0.5, T0.6, T0.9, T0.13). With no install manifest present, `install.sh` cannot
+distinguish a Wave 0 rewrite from a hand-edit and correctly refuses on all eight. See T1.3.
 
 ### T0.5 — Rewrite `adopt-harness/copy.sh`
 
@@ -249,13 +254,30 @@ runtime state. Use a standalone script or a Codex session.
 | --- | --- | --- |
 | T1.1 | `~/.config/git/ignore` += `.workspace/` | ✅ **DONE 2026-08-09**, pulled forward out of wave order on the developer's instruction — Wave 0 proved that until it landed, any `git add -A` in a worktree committed task memory and propagated it to every worktree cut afterwards. Verified: `.workspace/` is ignored and survives `git add -A`. Backup at `~/.config/git/ignore.pre-workspace.bak` |
 | T1.2 | Establish `~/.config/agents/secrets.env`; update `~/.zshrc` and both rule files | never move secret *values* by script |
-| T1.3 | `install.sh --dry-run`; reconcile the two drifted skills by hand; install | the refusal is expected |
+| T1.3 | `install.sh --dry-run`; reconcile the **8** flagged files by hand; install **with `--prune`** | see the note below — the refusal is expected, but the count and the prune decision are not what this row originally said |
 | T1.4 | Undo the `~/.claude` symlink; symlink provider subdirs to `~/.agents/` | no live Claude session |
 | T1.5 | Retire `~/agents/`; Conductor archives → `~/.conductor/` | inventory before removing |
 | T1.6 | Activate the migrated registry | |
 | T1.7 | Configure both providers' worktree roots; register `WorktreeCreate` | falls back safely if a setting is absent |
 | T1.8 | Trust `inject-global-rules.sh` in `~/.codex/hooks.json` and observe it fire | **descoped by decision K** — the six safety hooks are repo-owned, registered by `copy.sh` |
 | T1.9 | Codex plugin-scoping experiment | in a **disposable** trusted repo |
+
+### T1.3 — measured, not predicted (added by T0.16, 2026-08-09)
+
+`./install.sh --dry-run` was run read-only against the real machine at the end of Wave 0
+(`~/.agents/` hashed identically before and after). It exits 1 and reports:
+
+- **8 files refused**, not two: `adopt-harness/{SKILL.md,copy.sh}`, `brainstorm`, `diagnose`,
+  `docs-drift`, `handoff`, `verify-before-done`, `write-plan`. **Six are Wave 0's own rewrites**,
+  not machine drift — but with no manifest present `install.sh` cannot tell, and refusing is
+  correct. Disposition for all eight is **repo-wins**, except `adopt-harness/SKILL.md` and
+  `docs-drift/SKILL.md`, which must be *read first*: T0.1 found the installed copy carries an
+  in-place `CLAUDE.md`→`AGENTS.md` rewrite that is **buggy** (it documents a `.Codex/` path that
+  does not exist), so repo-wins is right there too, but for a reason worth confirming by eye.
+- **`keep 4`**, including `skills/grill-me/SKILL.md` and `skills/overview-fresh/SKILL.md` —
+  both **retired** by CONTRACT §5. Without `--prune` they stay installed and T0.6's grill collapse
+  never reaches the machine. **T1.3 must therefore run `--prune`**, having first confirmed the
+  other two kept files (`open-a-pr/`, now a project-layer skill) are wanted elsewhere or gone.
 
 **Wave 1 acceptance:** both providers start cleanly in a neutral directory and in an adopted repo;
 every registered hook is observed to fire; no secret value was written to any file; `~/.agents.prev`
@@ -310,4 +332,5 @@ providers; no project is declared aligned because a file merely exists.
 - [x] Task order, dependencies, and acceptance criteria are explicit.
 - [x] The snapshot task is first, ahead of anything destructive.
 - [x] The three unverified provider behaviours each have a safe fallback.
-- [ ] Wave 0 has been executed. *(not started — this plan has never been run)*
+- [x] Wave 0 has been executed. *(T0.1–T0.16 complete; see `../WAVE-0-VERIFICATION.md` and
+      `../T0.16-REVIEW.md`. `make check` green, 245 assertions across five suites.)*

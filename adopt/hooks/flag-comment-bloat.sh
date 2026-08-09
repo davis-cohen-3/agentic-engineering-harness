@@ -5,7 +5,9 @@
 # style rule the agent forgets. Nudge-only: exit 0, never blocks. Fails OPEN.
 # Conservative by design (fuzzy signal): skips docs/data, ignores small edits.
 # Tune via MIN_LINES (ignore small edits) + MAX_RATIO (allowed comment percent).
-set -euo pipefail
+set -uo pipefail
+# NOTE: deliberately no `set -e`. A failing jq on malformed stdin would abort before the
+# script's own `exit 0`, returning jq's exit 5 — outside the 0-allow / 2-block contract.
 
 MIN_LINES=10        # don't nag on small edits
 MAX_RATIO=30        # percent of added non-blank lines that may be comments

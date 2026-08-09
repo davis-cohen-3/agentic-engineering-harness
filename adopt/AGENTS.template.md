@@ -36,6 +36,8 @@ risk surface *here* is:
 ## Working agreement
 - Work on a **task branch**; never commit to the default branch. Ship via PR.
 - A change is done only when `make check` passes **and** you ran the change and watched the
-  intended behaviour work. Compiling is not working. Never claim done on unrun code.
+  intended behaviour work. Compiling is not working. **Never claim done on unrun code** — the full
+  definition is owned by the `verify-before-done` skill.
 - Match the surrounding code's structure and idiom. Comment the non-obvious *why*, never the *what*.
 - Secrets are never committed. Config references `${VAR}`, never a value.
+- **No reviewer runs automatically.** `reviewer` and `reviewer-security` run only when asked for.

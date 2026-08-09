@@ -62,8 +62,12 @@ if [ -n "$PROJECT" ]; then
   REPO="${hit%%$'\t'*}"; ROOT="${hit##*$'\t'}"
   [ -d "$REPO" ] || die "project '$PROJECT' points at a directory that does not exist: $REPO"
 else
-  REPO="$(git rev-parse --show-toplevel 2>/dev/null)" \
+  # The MAIN checkout, not the current one: --show-toplevel run from inside a worktree returns
+  # that worktree, nesting worktrees/worktrees/ and missing the registry. Working from a worktree
+  # is the normal case, since code/ is only a reference checkout.
+  git rev-parse --git-common-dir >/dev/null 2>&1 \
     || die "not inside a git repository, and no <project> given"
+  REPO="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
   if hit="$(registry_lookup repo "$(cd "$REPO" && pwd -P)")"; then
     ROOT="${hit##*$'\t'}"
   fi
@@ -72,6 +76,11 @@ fi
 # Unregistered repo: <container>/worktrees/. .workspace/ does not require adoption, and neither
 # does this — an unregistered repo is a normal case, not an error.
 [ -n "$ROOT" ] || ROOT="$(dirname "$REPO")/worktrees"
+
+# `git -C "$REPO" worktree add` resolves a relative path against $REPO, while every later check
+# here resolves it against the caller's cwd — the worktree lands somewhere nothing else looks at,
+# and wt reports success having skipped .workspace/ and setup. Absolutise before anything uses it.
+case "$ROOT" in /*) ;; *) ROOT="$(pwd -P)/$ROOT" ;; esac
 
 git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || die "not a git repository: $REPO"
 git -C "$REPO" remote get-url origin >/dev/null 2>&1 || die "$REPO has no 'origin' remote"

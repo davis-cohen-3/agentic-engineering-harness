@@ -4,10 +4,19 @@
 # itself: config is valid JSON and hooks are executable. A real repo DELETES this
 # and copies make/gate.example-python.mk or -ts.mk in its place.
 
-GATE_STEPS = validate-json validate-hooks test-install test-adopt test-workspace test-hooks test-contract
+GATE_STEPS = validate-json validate-hooks suites-wired test-install test-adopt test-workspace test-hooks test-contract
 
 validate-json:
-	@python3 -c "import json,sys; [json.load(open(f)) for f in ('.claude/settings.json','.mcp.json')]; print('→ json valid')"
+	@python3 -c "import json,sys; [json.load(open(f)) for f in ('.claude/settings.json','.codex/hooks.json','.mcp.json')]; print('→ json valid')"
+
+# GATE_STEPS is hand-maintained, so a new suite is silently never run until someone adds it here.
+suites-wired:
+	@missing=""; for t in test/*.test.sh; do \
+		n="test-$$(basename $$t .test.sh)"; \
+		case " $(GATE_STEPS) " in *" $$n "*) ;; *) missing="$$missing $$n";; esac; \
+	done; \
+	test -z "$$missing" || { echo "✗ suite(s) not wired into GATE_STEPS:$$missing"; exit 1; }; \
+	echo "→ all $$(ls test/*.test.sh | wc -l | tr -d ' ') suites wired into the gate"
 
 validate-hooks:
 	@n=0; for h in core/hooks/*.sh adopt/hooks/*.sh; do \

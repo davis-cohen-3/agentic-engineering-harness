@@ -11,8 +11,14 @@ cd "$REPO"
 pass=0 fail=0
 ok() { pass=$((pass+1)); printf '  ✓ %s\n' "$1"; }
 no() { fail=$((fail+1)); printf '  ✗ %s\n' "$1"; }
-# absent <regex> <where> <label> — the pattern must NOT appear
-absent() { if grep -rqiE "$1" $2 2>/dev/null; then no "$3"; grep -rilE "$1" $2 2>/dev/null | sed 's/^/      /'; else ok "$3"; fi; }
+# absent <regex> <where> <label> — the pattern must NOT appear.
+# The search paths are verified to exist first: grep over a nonexistent directory returns
+# non-zero, which would report a vacuous ✓ and turn a renamed directory into a silent no-op.
+absent() {
+  local d
+  for d in $2; do [ -e "$d" ] || { no "$3 — search path does not exist: $d"; return; }; done
+  if grep -rqiE "$1" $2 2>/dev/null; then no "$3"; grep -rilE "$1" $2 2>/dev/null | sed 's/^/      /'; else ok "$3"; fi
+}
 
 AGENTS="core/claude/agents core/codex/agents"
 
@@ -58,6 +64,11 @@ absent '@\.claude/FLOOR\.md' "CLAUDE.md adopt core .claude" "no @.claude/FLOOR.m
 grep -qE '^work:' adopt/Makefile && no "the Makefile work target survives" || ok "the Makefile work target is gone"
 grep -qE '^install-global:' adopt/Makefile && no "install-global survives" || ok "install-global is retired"
 grep -q 'active-spec' .gitignore && no ".gitignore still ignores active-spec" || ok "the active-spec ignore entry is gone"
+# Removing only the IGNORE entry un-ignores the file, so the next `git add -A` COMMITS the retired
+# surface. That happened. Assert the file itself is gone, on disk and from the index.
+[ -e .claude/active-spec ] && no ".claude/active-spec still exists on disk" || ok ".claude/active-spec is gone from disk"
+git ls-files --error-unmatch .claude/active-spec >/dev/null 2>&1 \
+  && no ".claude/active-spec is TRACKED — un-ignoring it got it committed" || ok ".claude/active-spec is not tracked"
 grep -q '\.workspace' .gitignore && no ".workspace/ is in a repo .gitignore (it must be global-only)" \
   || ok ".workspace/ is not in the repo .gitignore — exclusion is global (CONTRACT §2)"
 make -n work >/dev/null 2>&1 && no "make work still resolves" || ok "make work no longer resolves"
@@ -78,6 +89,27 @@ grep -qiE '^\| \*\*T0\*\*' adopt/specs/README.md \
 miss=0; for s in core/skills/*/SKILL.md; do grep -q 'STARTER_CHARACTER' "$s" || { miss=1; echo "      $s"; }; done
 [ "$miss" = 0 ] && ok "every core skill declares its own STARTER_CHARACTER" || no "a core skill has no marker"
 
+echo "the harness binds its own hooks for BOTH providers (decision K, applied to itself)"
+python3 - <<'PY' && ok "both of this repo's bindings resolve to real executables" || no "a binding in this repo is dangling"
+import json,subprocess,os
+root=subprocess.check_output(["git","rev-parse","--show-toplevel"],text=True).strip()
+for f,sub in ((".claude/settings.json","$CLAUDE_PROJECT_DIR"),(".codex/hooks.json",None)):
+    d=json.load(open(f))
+    for g in (grp for ev in d["hooks"].values() for grp in ev):
+        for h in g["hooks"]:
+            p=h["command"].replace(sub,root) if sub else \
+              h["command"].replace('"$(git rev-parse --show-toplevel)"',root).strip('"')
+            assert os.path.isfile(p) and os.access(p,os.X_OK), f"{f}: {p}"
+PY
+python3 - <<'PY' && ok "protect-secrets' matcher includes apply_patch in this repo too" || no "this repo's Codex matcher would skip apply_patch"
+import json,sys
+for g in (grp for ev in json.load(open(".codex/hooks.json"))["hooks"].values() for grp in ev):
+    for h in g["hooks"]:
+        if "protect-secrets" in h["command"]:
+            assert "apply_patch" in g.get("matcher",""); sys.exit(0)
+sys.exit(1)
+PY
+
 echo "T0.14 — one documentation namespace, one profile (DECISION L)"
 [ -f AGENTS.md ] && ok "the harness has its own AGENTS.md" || no "AGENTS.md is missing"
 grep -q '^@AGENTS.md$' CLAUDE.md && ok "CLAUDE.md imports AGENTS.md" || no "CLAUDE.md does not import AGENTS.md"
@@ -90,19 +122,31 @@ for f in docs/INDEX.md adopt/docs/INDEX.md adopt/docs/architecture.md adopt/docs
 done
 ls docs/*.md 2>/dev/null | grep -qE 'HIGH-LEVEL-CONTEXT|DESIGN-REVIEW|RESEARCH-20|REVIEW-20' \
   && no "a planning/research artifact is still in docs/" || ok "docs/ holds no planning artifacts"
-grep -q 'adopt/docs/INDEX.md:docs/INDEX.md' core/skills/adopt-harness/copy.sh \
-  && ok "the docs scaffold travels (write-only-when-absent)" || no "the docs scaffold does not travel"
-grep -q '"adopt/docs:docs"' core/skills/adopt-harness/copy.sh \
-  && no "adopt/docs is copied unconditionally — it would clobber a repo's filled-in docs" \
-  || ok "adopt/docs is not in the unconditional manifest"
+# Membership in the right ARRAY, not presence in the file: a whole-file grep stays green when an
+# entry moves from ONCE to FIXED, which is exactly the change that would clobber a repo's docs.
+python3 - <<'PY' && ok "every docs scaffold entry is in ONCE, none in FIXED" || no "a docs entry is in the wrong manifest array"
+import re,sys,pathlib
+t=pathlib.Path("core/skills/adopt-harness/copy.sh").read_text()
+def arr(name):
+    m=re.search(rf'^{name}=\((.*?)^\)', t, re.S|re.M)
+    return re.findall(r'"([^"]+)"', m.group(1)) if m else []
+fixed,once=arr("FIXED"),arr("ONCE")
+docs=[e for e in fixed+once if e.startswith("adopt/docs")]
+assert docs, "no docs entries in either manifest"
+bad=[e for e in fixed if e.startswith("adopt/docs")]
+assert not bad, f"clobbering entries in FIXED: {bad}"
+for f in ("adopt/docs/INDEX.md","adopt/docs/architecture.md","adopt/docs/glossary.md"):
+    assert any(e.startswith(f+":") for e in once), f"{f} not in ONCE"
+PY
 
 echo "every superseded document says so in its first ten lines"
+unbannered=0
 for f in specs/harness-standardization/README.md specs/harness-standardization/0*.md \
          specs/harness-standardization/PRE-IMPLEMENTATION-CONTRACT-AUDIT.md \
          specs/harness-standardization/HIGH-LEVEL-CONTEXT.md; do
-  head -10 "$f" | grep -qiE 'SUPERSEDED' || { no "no supersession banner: $f"; continue; }
+  head -10 "$f" | grep -qiE 'SUPERSEDED' || { no "no supersession banner: $f"; unbannered=1; }
 done
-ok "all superseded epic documents carry a banner in their first ten lines"
+[ "$unbannered" -eq 0 ] && ok "all superseded epic documents carry a banner in their first ten lines"
 head -10 specs/harness-standardization/HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md \
   | grep -qi 'No longer authoritative' && ok "the design review is marked provenance-only" \
   || no "the design review does not declare its status"
@@ -111,17 +155,22 @@ echo "the authority order is stated identically everywhere it appears"
 python3 - <<'PY' && ok "every authority statement lists DECISIONS-PENDING → CONTRACT → design review → tasks" \
   || no "an authority statement disagrees with the others"
 import pathlib,re
-# Unambiguous tokens only: a bare "CONTRACT" also matches PRE-IMPLEMENTATION-CONTRACT-AUDIT.
-order=["DECISIONS-PENDING","HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW","tasks.md"]
+# CONTRACT.md must be matched WITHOUT also matching PRE-IMPLEMENTATION-CONTRACT-AUDIT.md, or a
+# document could place CONTRACT after plan/tasks.md and still pass. Anchor on the exact filename.
+order=[r'DECISIONS-PENDING\.md', r'(?<!-)\bCONTRACT\.md', r'HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW',
+       r'tasks\.md']
 seen_any=False
 for p in pathlib.Path("specs/harness-standardization").rglob("*.md"):
     if "snapshot" in p.parts: continue
     for m in re.finditer(r'\*\*Authority:?\*\*(.{0,400})', p.read_text(), re.S):
         body=m.group(1)
-        pos=[body.index(n) for n in order if n in body]
+        pos=[]
+        for pat in order:
+            hit=re.search(pat, body)
+            if hit: pos.append(hit.start())
         assert pos==sorted(pos), f"{p}: authority names out of order"
-        if len(pos)>=2: seen_any=True
-assert seen_any, "no authority statement found to check"
+        if len(pos)>=3: seen_any=True
+assert seen_any, "no authority statement listed enough names to check"
 PY
 
 echo "no dangling markdown links"
@@ -141,7 +190,10 @@ PY
 echo "retired conventions survive only in historical documents"
 python3 - <<'PY' && ok "no live surface references a retired convention" || no "a retired convention is still live"
 import pathlib,re
-HIST=re.compile(r'specs/harness-standardization/(0[1-8]|README|PRE-IMPL|CONTRACT|DECISIONS|WAVE-0|plan/|snapshot/|HIGH-LEVEL|HARNESS-DEPOT|research/)')
+# The whole epic directory is authority or record — contract, decisions, superseded plans, the
+# wave reports. None of it is a live surface; all of it legitimately NAMES what was retired.
+# Enumerating filenames here was brittle and failed the moment the epic gained a document.
+HIST=re.compile(r'^specs/harness-standardization/')
 RETIRED=re.compile(r'\.claude/active-spec|make work SPEC|thoughts\.md|\.sessions/|\.context/<|agent_docs')
 # Allowed: files whose whole job is to DESCRIBE a retirement — assert it is gone, refuse to copy
 # it, or tabulate what replaced it. A new *instruction* to use a retired surface still fails.
@@ -200,9 +252,25 @@ for line in claims.splitlines():
     if len(cells)>4 and cells[1]=="§7" and not cells[3]:
         problems.append(f"unmapped §7 claim: {cells[2][:60]}")
 
+# 4. every claim marker CONTRACT §7 raises must be represented in the map. Without this the
+#    whole check is asserted against the scenario's own fixture: a new §7 guarantee could land
+#    with no row and nothing would notice.
+c=pathlib.Path("specs/harness-standardization/CONTRACT.md").read_text()
+s7=c.split("## 7. The day-to-day journey",1)[1].split("\n## 8.",1)[0]
+markers=[m.group(1).replace("\n"," ") for m in re.finditer(r'^⚠? ?\*\*(.+?)\*\*', s7, re.M|re.S)]
+# a marker is represented if the claim table mentions its distinctive words
+KEY={"default":"default","T3":"T3","creators":"creators","eager":"eager","lazy":"lazy",
+     "orients":"orients","cleanup":"cleanup","sweep":"sweep","Phone":"Phone","order":"order"}
+for mk in markers:
+    words=[v for k,v in KEY.items() if k.lower() in mk.lower()]
+    if not words:
+        problems.append(f"CONTRACT §7 marker has no keyword mapping: {mk[:60]}"); continue
+    if not any(w.lower() in claims.lower() for w in words):
+        problems.append(f"CONTRACT §7 claim unmapped in the scenario: {mk[:60]}")
+
 if problems:
     print("\n".join("      "+p for p in problems), file=sys.stderr); sys.exit(1)
-print(f"      {len(steps)} steps, {len(cited)} citations, all resolved", file=sys.stderr)
+print(f"      {len(steps)} steps, {len(cited)} citations, {len(markers)} §7 markers, all resolved", file=sys.stderr)
 PY
 
 printf '\n%s passed, %s failed\n' "$pass" "$fail"

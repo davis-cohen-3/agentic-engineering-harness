@@ -51,8 +51,20 @@ has ".codex/hooks.json"   ".codex/hooks.json written"
   && ok ".agents/skills and .claude/skills are the same directory" || no "symlink points elsewhere"
 grep -q 'git rev-parse --show-toplevel' "$T/.codex/hooks.json" \
   && ok "Codex bindings resolve from the repo root, not cwd or an absolute path" || no "Codex bindings not repo-root-resolved"
-grep -q 'apply_patch' "$T/.codex/hooks.json" \
-  && ok "the edit matcher includes apply_patch" || no "apply_patch missing from the edit matcher"
+# Per-matcher, not a whole-file grep: the comment-bloat group also contains the word apply_patch,
+# so a file-wide match stays green while protect-secrets' own matcher loses it — which is exactly
+# the CONTRACT §5 failure mode (the guard never runs on a Codex edit, and nothing says so).
+python3 - "$T" <<'PY' && ok "protect-secrets' OWN matcher includes apply_patch" || no "protect-secrets would not fire on a Codex edit"
+import json,sys
+d=json.load(open(f"{sys.argv[1]}/.codex/hooks.json"))
+for ev,groups in d["hooks"].items():
+    for g in groups:
+        for h in g["hooks"]:
+            if "protect-secrets" in h["command"]:
+                assert "apply_patch" in g.get("matcher",""), g.get("matcher")
+                sys.exit(0)
+sys.exit(1)
+PY
 python3 - "$T" <<'PY' && ok "every Codex hook binding resolves to a real file" || no "a Codex hook binding is dangling"
 import json,sys,os,subprocess
 t=sys.argv[1]; d=json.load(open(f"{t}/.codex/hooks.json"))

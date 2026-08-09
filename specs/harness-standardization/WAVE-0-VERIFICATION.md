@@ -1,15 +1,19 @@
 # Wave 0 — verification report
 
-**Branch:** `wave0/harness-standardization`, cut from `origin/main` @ `46521c1` (the authority
-baseline). **Status: T0.1 – T0.10 complete and verified. T0.11 – T0.16 not started.**
+**Branch:** `wave0/harness-standardization`, cut from `origin/main` @ `92bac8e`.
+**Status: T0.1 – T0.16 complete and verified. Wave 0 is closed; Wave 1 is unblocked.**
 
 No other repository was modified. Wave 0 remains fully reversible: every change is a commit on
 this branch, and nothing has been pushed.
 
 **One machine change was made**, on the developer's instruction and out of wave order: Wave 1
-T1.1 added `.workspace/` to `~/.config/git/ignore` (see *Two incidents* below). Nothing else was
-installed, moved, or migrated — `~/.agents/` is untouched, there is no `~/.config/agents/`, and
-no `~/.local/bin/wt`.
+T1.1 added `.workspace/` to `~/.config/git/ignore` (see *Incidents* below). Nothing else was
+installed, moved, or migrated — `~/.agents/` is untouched (hashed identically before and after
+every read-only probe), there is no `~/.config/agents/`, and no `~/.local/bin/wt`.
+
+**One other repository was read, with the developer's explicit approval:** melting's `origin/main`,
+read-only, to harvest the `protect-secrets.sh` `apply_patch` fallback for T0.11. No write, branch,
+or commit was made there.
 
 ## What "verified" means here
 
@@ -17,17 +21,19 @@ Every acceptance line in `plan/tasks.md` was *observed*, not asserted. Where an 
 was a machine mutation that Wave 1 owns, it was exercised against a sandbox `$HOME` or a
 disposable git repo in a temp dir instead — stated per task below.
 
-Three test suites, **135 assertions**, all passing and all wired into `make check`:
+Five suites, **245 assertions**, all passing and all wired into `make check`:
 
 | Suite | Covers | Assertions |
 | --- | --- | --- |
 | `test/install.test.sh` | T0.4 | 33 |
 | `test/adopt.test.sh` | T0.5 | 32 |
-| `test/workspace.test.sh` | T0.7 – T0.10 | 70 |
+| `test/workspace.test.sh` | T0.7 – T0.10 | 76 |
+| `test/hooks.test.sh` | T0.11 | 53 |
+| `test/contract.test.sh` | T0.12 – T0.15 | 51 |
 
-`make check` also validates JSON config and that all 9 hooks are executable. It previously
-validated `.claude/hooks/*.sh` and would have passed silently on an empty glob; it now counts
-what it checked.
+`make check` also validates both providers' JSON config, that all 9 hooks are executable, and —
+since T0.16 — that **every** `test/*.test.sh` is actually wired into `GATE_STEPS`, because a new
+suite was previously silently never run.
 
 ## Per task
 
@@ -36,24 +42,35 @@ what it checked.
 | **T0.1** Snapshot | 5484 files checksummed across the unique trees; 150 authored files copied and re-verified against source. `~/.claude` is a symlink to `~/agents/claude`, so T0.1's "four trees" are three unique roots. Runtime state (903 MB of transcripts) is checksummed as Wave 1's inventory but not copied — stated, not silent. `secrets.env` checksummed, never copied. |
 | **T0.1a** Addendum | `~/.codex/agents/` already held all four `.toml` agents CONTRACT §9 lists as "does not exist". Authored, unversioned, outside the stated scope — the walk was widened rather than the gap left flagged. |
 | **T0.2** Import ten skills | All 21 on-disk skills now have a repo copy; 59 imported files match their recorded on-machine checksums. `hot-mac`'s layer explicitly undecided. |
-| **T0.3** core/ + adopt/ | Four agents as eight files; all four `.toml` parse with the required keys and their bodies were verified byte-identical to the `.md` bodies before import. No secret in `core/`. Three guards exercised from their new path. |
-| **T0.4** `install.sh` | **Observed on the real machine, read-only:** `--dry-run` names exactly the two drifted skills and exits 1, and `~/.agents/` hashes identically before and after. Idempotency, refusal, reconciliation, prune, `--force`, mid-swap recovery and the secret guard exercised in a sandbox `$HOME`. |
+| **T0.3** core/ + adopt/ | Four agents as eight files; all four `.toml` parse with the required keys, and their bodies are asserted byte-identical to the `.md` bodies by `contract.test.sh` — no longer a one-time check. No secret in `core/`. |
+| **T0.4** `install.sh` | **Observed on the real machine, read-only:** `--dry-run` exits 1 and `~/.agents/` hashes identically before and after. Idempotency, refusal, reconciliation, prune, `--force`, mid-swap recovery and the secret guard exercised in a sandbox `$HOME`. T0.16 re-measured the drift count — see *Wave 1 T1.3* below; it is **8**, not two. |
 | **T0.5** `copy.sh` | A real disposable repo is adopted and discoverable by both providers: every binding in both providers' config resolves to a file that exists, and `.agents/skills` and `.claude/skills` are the same directory. No retired surface travels; re-running clobbers nothing. |
 | **T0.6** `grill` | Three skills merged into one; automatic doc creation stripped. `domain-modeling` also fixed. |
-| **T0.7** `ensure-workspace.sh`, `wt` | Every CONTRACT §7 refusal case exercised; ten-run idempotency; the worktree is kept on setup failure. |
+| **T0.7** `ensure-workspace.sh`, `wt` | Every CONTRACT §7 refusal case exercised; ten-run idempotency; the worktree is kept on setup failure. T0.16 added two cases this missed: `wt` run **from inside a worktree**, and a **relative** `worktree_root`. |
 | **T0.8** Registry migration | Verified against the **real** registry read-only: source checksum unchanged, nothing written to `~/.config/`, and the diff is exactly the four `worktree_root` lines plus the `depot` block. Comments and `profiles:` survive because the transform is line-based, not a PyYAML round-trip. |
 | **T0.9** Retarget skills | No shipping skill references `thoughts.md`, `.sessions/`, `.context/` or `agent_docs/`. 40 concurrent writers → 40 distinct files, 0 duplicates. `write-plan`'s automatic ADR creation removed. |
 | **T0.10** Orientation hook | Writes nothing (snapshot-compared), silent when nothing resolves, filenames only — a marker written into a handoff body never reaches context. Ordering verified in a genuinely fresh worktree. |
+| **T0.11** Codex hook parity | Harvested melting `origin/main` blob `7687e47a…` (commit `4d554c16`); `95fa9b1` deliberately not harvested. Proved the gap was real by running the **pre-fix** script against Codex payloads: a `.env.local` write and a literal API key both exited 0; both exit 2 after. All seven repo-owned hooks exercised against both providers' payload shapes from a real adopted repo; path resolution verified from a deep subdirectory, including one hook invoked **through** its Codex binding. ⚠ T0.16 then found the payload model incomplete — see S1 below. |
+| **T0.12** Reviewers and shipping | Both self-trigger sentences gone from all four files; each description states it runs only on request; `reviewer-security` → `opus`. The Codex `.toml` adapter carries no `model` key for any agent, so that move is Claude-only — an asymmetry recorded rather than papered over with an unverified format key. `open-a-pr` owns the `LOG.md` carry; `ship` delegates. |
+| **T0.13** Retire old surfaces | `FLOOR.md` removed and its content redistributed per DECISION I (the gate **retained**); `work` target and `install-global` removed with tombstones. ⚠ The `.claude/active-spec` half was **done wrong and caught by T0.16** — see C1. |
+| **T0.14** Instruction files and docs | `AGENTS.md` is the single profile, `CLAUDE.md` a seven-line stub. `agent_docs/` retired into `adopt/docs/` (and now travels, write-only-when-absent). Planning artifacts moved under the epic. Two real gaps found by the new assertions: `prototype` and `research` had no `STARTER_CHARACTER`, and `PLAN-MODE.md` still routed output to `thoughts.md`. |
+| **T0.15** Acceptance scenario | 40 steps across 11 phases; every CONTRACT §7 claim mapped, every step carries an observable. Internal completeness is itself gate-asserted — verified by injecting three failure shapes and watching each fail. T0.16 found Depot unexercised and added steps C4–C5. |
+| **T0.16** Adversarial + security review | Both reviewers run. **One critical security bypass, one high-severity contract violation, three must-fix correctness bugs, six hollow assertions** — all fixed with mutation-tested guards; eight findings accepted in writing. Full record: [`T0.16-REVIEW.md`](./T0.16-REVIEW.md). |
 
-## Decisions raised and settled during the wave
+## What T0.16 changed about the earlier tasks
 
-Recorded in `DECISIONS-PENDING.md` as **pass 3**, and `CONTRACT.md` reconciled to match.
+Three of the ten "verified" tasks had defects that survived their own acceptance checks. Recorded
+here because a verification report that only lists successes is not a verification report.
 
-- **K — hooks are repo-owned.** CONTRACT §5 could not be executed as written: it placed hooks in
-  the machine payload while requiring bindings to resolve from `$(git rev-parse --show-toplevel)`,
-  which only resolves if the scripts are inside the repo. Settled by the developer: a repo owns
-  its hooks; machine-wide registration is deferred, and **Wave 1 T1.8 is descoped** accordingly.
-- **L — the profile is single-sourced in `AGENTS.md`**, with `CLAUDE.md` a stub that imports it.
+- **S1 (critical).** `protect-secrets.sh` never path-checked a `*** Move to:` rename destination,
+  so a Codex agent could write a benign file and rename it onto `.env`. T0.11's payload model was
+  built from 118 *observed* payloads, none of which was a rename — **observed traffic is not the
+  grammar**. Confirmed against the `codex 0.147.0` binary, which carries all four directives.
+  Melting's `origin/main` has the same gap and needs the same fix.
+- **C1.** T0.13 removed `.claude/active-spec` from `.gitignore` but not from disk, so the next
+  `git add -A` **committed** the retired surface. The commit message claimed otherwise.
+- **C2.** The Stop gate never fired in this repo: it grepped for `^check:` in a `Makefile` that
+  only `include`s another one. `make check` being green never proved the hook enforced it.
 
 ## Two incidents, both closed
 
@@ -71,61 +88,58 @@ Recorded in `DECISIONS-PENDING.md` as **pass 3**, and `CONTRACT.md` reconciled t
 `.workspace/` was globally ignored, any `git add -A` in a worktree committed task memory and
 propagated it to every worktree cut afterwards.
 
+**A third, latent instance of incident 1 was found in T0.16 and closed:** `test/install.test.sh`
+pinned `HOME` but not `XDG_CONFIG_HOME`, so on any machine that sets it the sandboxed test would
+have written the real `~/.config/agents/projects.yaml`. Dormant here only because the variable is
+unset.
+
 **Wave 1 T1.1 was pulled forward and executed on 2026-08-09** on the developer's instruction —
-the one machine change made during Wave 0, and the only exception to "no machine changes".
-`~/.config/git/ignore` gained `.workspace/`. Verified empirically in a fresh repo: `MISSION.md`,
-`LOG.md` and `history/` records are all ignored, `git status -uall` is clean, and `git add -A`
-followed by `git ls-files` lists nothing. The pre-existing
-`**/.claude/settings.local.json` entry still matches. `core.excludesFile` is unset, so git uses
-this path by documented default — confirmed live before editing. Backup:
+the one machine change made during Wave 0. `~/.config/git/ignore` gained `.workspace/`. Verified
+empirically in a fresh repo: `MISSION.md`, `LOG.md` and `history/` records are all ignored,
+`git status -uall` is clean, and `git add -A` followed by `git ls-files` lists nothing. The
+pre-existing `**/.claude/settings.local.json` entry still matches. `core.excludesFile` is unset, so
+git uses this path by documented default — confirmed live before editing. Backup:
 `~/.config/git/ignore.pre-workspace.bak`. Reversible by restoring it.
 
 ## Findings recorded, not acted on
 
 - `~/.agents/skills` drift is **not staleness**: it is an in-place `CLAUDE.md`→`AGENTS.md` /
   `.claude`→`.Codex` rewrite applied to the installed projection, and it is **buggy** — the
-  installed `adopt-harness/SKILL.md` documents a `.Codex/` path that does not exist. `~/.claude/skills`
-  matches the repo exactly. Wave 1 T1.3 reconciles; the evidence points to repo-wins.
-- `~/.claude/agents/reviewer.md` is already `model: opus` on the machine where the repo says
-  `sonnet` — the projection hand-edited toward T0.12's outcome.
+  installed `adopt-harness/SKILL.md` documents a `.Codex/` path that does not exist.
+  `~/.claude/skills` matches the repo exactly. Wave 1 T1.3 reconciles; the evidence points to
+  repo-wins.
+- `~/.claude/agents/reviewer.md` was already `model: opus` on the machine where the repo said
+  `sonnet` — the projection hand-edited toward T0.12's outcome, which T0.12 has since made real.
 - The machine has an `overview-fresh-check` scheduled task for a skill CONTRACT §5 retires.
 
-## Remaining — T0.11 to T0.16
+## Wave 1 T1.3 — measured, not predicted
 
-Not started. Dependencies are satisfied; each can begin immediately.
-
-| Task | Note for the next session |
-| --- | --- |
-| **T0.11** Codex hook parity | Harvest `protect-secrets.sh`'s `apply_patch` fallback from melting **`origin/main`** and record the blob SHA; do **not** harvest `95fa9b1`. The `apply_patch` matcher is already in `adopt/codex/hooks.json` and asserted by `adopt.test.sh`, but **no hook has yet been exercised against a real Codex `apply_patch` payload** — that is the substance of this task. Note this requires *reading* the melting repo; confirm that is in scope. |
-| **T0.12** Reviewers | Four files: `core/{claude,codex}/agents/reviewer{,-security}.{md,toml}`. Both self-trigger sentences are still present, verbatim, in all four. `reviewer-security` → `opus`. `open-a-pr` still needs the `LOG.md`-into-PR-body change (`ship.md` already has it). |
-| **T0.13** Retire old surfaces | `.claude/FLOOR.md`, the `Makefile` `work` target, `.claude/active-spec` + its `.gitignore` entry. The retired spec companions were already removed in T0.5 (T0.5's acceptance required it). `CLAUDE.template.md`'s `@.claude/FLOOR.md` import is already gone — decision L replaced that file. |
-| **T0.14** Instruction files and docs | The harness's own `AGENTS.md` does not exist yet. `adopt/AGENTS.template.md` exists (written in T0.5) but T0.14 should review it. `specs/README.md` now lives at `adopt/specs/README.md`; root `specs/` holds only real specs. `agent_docs/` → `docs/` reconciliation is untouched. |
-| **T0.15** Acceptance scenario | Much of it is already executable: `test/adopt.test.sh` and `test/workspace.test.sh` cover adoption and the `wt` path end to end. What is missing is the **Codex** half and the human-run scoping→spec→build→ship→remove walk. |
-| **T0.16** Adversarial + security review | Explicitly requested for this wave. Give it real room — it is the review of the installer that writes the machine tree and the guards that gate every edit. |
-
-**Wave 1 must not start until T0.16 closes.** (T1.1 is the sole exception, already done — it was
-pulled forward because Wave 0 proved it was load-bearing.)
+`plan/tasks.md` now carries the measured list. Summary: `--dry-run` refuses **8** files (six are
+Wave 0's own rewrites, which `install.sh` cannot distinguish from hand-edits without a manifest —
+refusing is correct), and reports `keep 4` including `grill-me` and `overview-fresh`, both retired
+by CONTRACT §5. **T1.3 must run `--prune`**, or T0.6's grill collapse never reaches the machine.
 
 ---
 
 ## Starting the next session
 
-Read, in this order: `DECISIONS-PENDING.md` → `CONTRACT.md` → `plan/tasks.md` → this file.
-Then continue at **T0.11**. Everything below is already settled — do not reopen it.
+Read, in this order: `DECISIONS-PENDING.md` → `CONTRACT.md` → `plan/tasks.md` → this file →
+`T0.16-REVIEW.md`. Then begin **Wave 1**. Everything in Wave 0 is settled — do not reopen it.
 
-**Branch:** `wave0/harness-standardization`, 12 commits, nothing pushed. `make check` is green
-and runs all 135 assertions.
+**Branch:** `wave0/harness-standardization`, 20 commits, nothing pushed. `make check` is green
+and runs all 245 assertions.
 
-**What changed structurally** (the plan's older files describe the pre-restructure layout):
+**Structure** (the plan's older files describe the pre-restructure layout):
 
 ```text
 core/     → ~/.agents/ via install.sh   skills/ rules/ claude/agents/ codex/agents/
                                         hooks/ holds ONLY inject-global-rules.sh
 adopt/    → a target repo via copy.sh   AGENTS.template.md CLAUDE.template.md hooks/
-                                        settings.json codex/hooks.json Makefile make/ specs/
+                                        settings.json codex/hooks.json Makefile make/ specs/ docs/
 packs/    → versioned, installed nowhere: project/ area/ retired/ unassigned/
 bin/      → wt, workspace-record        install/ → migrate-registry.py
-test/     → install, adopt, workspace   .claude/ → this repo's own project layer only
+test/     → install adopt workspace hooks contract
+.claude/ + .codex/ → this repo's own project layer and its two hook bindings
 ```
 
 **Three decisions are settled and confirmed by the developer** — treat as authority alongside the
@@ -137,9 +151,15 @@ baseline:
   Re-confirmed 2026-08-09.
 - **T1.1 is done** — `.workspace/` is globally ignored.
 
-**Two habits this wave earned the hard way**, both now enforced by tests:
+**Three habits this wave earned the hard way**, all now enforced by tests:
 
 1. Any test that invokes `wt` must pin **both** `XDG_CONFIG_HOME` and cwd into its sandbox.
-   Without both, `wt` resolves the real registry and cuts real worktrees in real projects.
+   Without both, `wt` resolves the real registry and cuts real worktrees in real projects. The
+   same applies to anything reading `${XDG_CONFIG_HOME:-$HOME/.config}` — pinning `HOME` alone is
+   not enough.
 2. Never `git add -A` in a sandbox repo that has a `.workspace/` unless the sandbox also models
    the global gitignore.
+3. **A guard is not verified until you have watched its test fail.** Three defects in this wave
+   sat behind assertions that could not fail: a whole-file grep satisfied by the wrong line, a
+   `grep -r` over a path that no longer existed, and a completeness check asserted against its own
+   fixture. Mutate the thing the assertion protects, watch it go red, then restore.
