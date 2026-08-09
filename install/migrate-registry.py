@@ -35,31 +35,68 @@ DEPOT_BLOCK = """
 """
 
 
-def migrate(text):
-    """Return (new_text, [descriptions of what changed])."""
-    lines = text.splitlines(keepends=True)
-    out, changes, current_repo = [], [], None
+class ShapeError(Exception):
+    """The registry is not the shape this line-based transform can safely edit."""
 
-    for line in lines:
+
+def _indent(line):
+    return len(line) - len(line.lstrip())
+
+
+def migrate(text):
+    """Return (new_text, [descriptions of what changed]).
+
+    Raises ShapeError rather than guessing. A line-based edit is only safe while the file has
+    the shape it assumes, and this runs once against the only registry there is.
+    """
+    lines = text.splitlines(keepends=True)
+
+    projects_at = next((i for i, l in enumerate(lines)
+                        if l.strip().startswith("projects:") and _indent(l) == 0), None)
+    if projects_at is None:
+        raise ShapeError("no top-level 'projects:' key — refusing to guess where projects live")
+
+    # The projects block runs until the next top-level key. Appending at EOF instead would land
+    # the new project under whatever key happens to come last.
+    end = len(lines)
+    for i in range(projects_at + 1, len(lines)):
+        if lines[i].strip() and _indent(lines[i]) == 0:
+            end = i
+            break
+
+    out, changes, current_repo = [], [], None
+    body = [l for l in lines[projects_at + 1:end] if l.strip()]
+    key_indent = min((_indent(l) for l in body), default=2)
+
+    for i, line in enumerate(lines):
         stripped = line.strip()
-        if stripped.startswith("repo:"):
+        in_projects = projects_at < i < end
+        # A new project key resets the context. Without this, a project missing `repo:` would
+        # inherit the previous one's and rewrite the WRONG entry's worktree_root.
+        if in_projects and stripped.endswith(":") and _indent(line) == key_indent:
+            current_repo = None
+        if in_projects and stripped.startswith("repo:"):
             current_repo = stripped.split("repo:", 1)[1].strip()
-        if stripped.startswith("worktree_root:") and current_repo in WORKTREE_ROOTS:
-            old = stripped.split("worktree_root:", 1)[1].strip()
-            new = WORKTREE_ROOTS[current_repo]
-            if old != new:
-                indent = line[: len(line) - len(line.lstrip())]
-                line = f"{indent}worktree_root: {new}\n"
-                changes.append(f"{current_repo}: {old} -> {new}")
+        if in_projects and stripped.startswith("worktree_root:"):
+            if current_repo is None:
+                raise ShapeError(
+                    f"line {i + 1}: 'worktree_root:' with no preceding 'repo:' in its project — "
+                    "cannot tell which project it belongs to")
+            if current_repo in WORKTREE_ROOTS:
+                old = stripped.split("worktree_root:", 1)[1].strip()
+                new = WORKTREE_ROOTS[current_repo]
+                if old != new:
+                    line = f"{line[:_indent(line)]}worktree_root: {new}\n"
+                    changes.append(f"{current_repo}: {old} -> {new}")
         out.append(line)
 
-    text = "".join(out)
-    if "\n  depot:" not in text:
-        if not text.endswith("\n"):
-            text += "\n"
-        text += DEPOT_BLOCK
+    if "\n  depot:" not in "".join(out):
+        block = DEPOT_BLOCK.strip("\n") + "\n"
+        while end > projects_at + 1 and not out[end - 1].strip():
+            end -= 1                      # insert before trailing blanks, not after them
+        out[end:end] = [block]
         changes.append("added project: depot (~/dev/depot)")
-    return text, changes
+    return "".join(out), changes
 
 
 def main(argv):
@@ -79,7 +116,12 @@ def main(argv):
 
     with open(source) as f:
         original = f.read()
-    migrated, changes = migrate(original)
+    try:
+        migrated, changes = migrate(original)
+    except ShapeError as e:
+        print(f"migrate-registry: {e}", file=sys.stderr)
+        print("  nothing was written; migrate this file by hand.", file=sys.stderr)
+        return 1
 
     for c in changes:
         print(f"  {c}")

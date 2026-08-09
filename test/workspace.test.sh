@@ -128,6 +128,26 @@ wt demo --branch frommigrated >"$SB/o" 2>&1; is "wt resolves a project from the 
 grep -q 'left untouched' "$SB/o" && ok "never overwrites an existing target" || no "overwrote the target"
 rm -f "$SB/config/agents/projects.yaml"
 
+echo "registry migration — the transform refuses a shape it cannot safely edit"
+# It used to append the new project at EOF, which only landed inside projects: because projects:
+# happened to be the last top-level key. And current_repo was never reset, so a project missing
+# repo: would inherit the previous one's and rewrite the WRONG entry.
+printf 'projects:\n  smoke-screen:\n    repo: ~/smoke/code/smoke-screen\n    worktree_root: ~/old\nprofiles:\n  claude:\n    launch: c\n' >"$SB/notlast.yaml"
+"$REPO/install/migrate-registry.py" "$SB/notlast.yaml" "$SB/notlast.out" >/dev/null 2>&1
+python3 - "$SB/notlast.out" <<'PY' && ok "depot lands INSIDE projects: even when projects: is not last" || no "depot landed under the wrong key"
+import yaml,sys
+d=yaml.safe_load(open(sys.argv[1]))
+assert "depot" in d["projects"], d["projects"]
+assert "claude" in d["profiles"], d
+PY
+printf 'projects:\n  a:\n    worktree_root: ~/x\n' >"$SB/norepo.yaml"
+"$REPO/install/migrate-registry.py" "$SB/norepo.yaml" "$SB/norepo.out" >"$SB/o" 2>&1
+is "refuses a worktree_root with no preceding repo:" "$?" 1
+[ -e "$SB/norepo.out" ] && no "wrote output despite refusing" || ok "and writes nothing when it refuses"
+printf 'profiles:\n  claude:\n    launch: c\n' >"$SB/noproj.yaml"
+"$REPO/install/migrate-registry.py" "$SB/noproj.yaml" "$SB/noproj.out" >"$SB/o" 2>&1
+is "refuses a registry with no projects: key" "$?" 1
+
 echo "wt — refusals"
 wt --branch feat/thing >"$SB/o" 2>&1; is "existing branch refuses" "$?" 1
 grep -q "$SB/worktrees/thing" "$SB/o" && ok "prints the existing path" || no "did not print the path"
