@@ -4,7 +4,7 @@
 # itself: config is valid JSON and hooks are executable. A real repo DELETES this
 # and copies make/gate.example-python.mk or -ts.mk in its place.
 
-GATE_STEPS = validate-json validate-hooks test-install test-adopt test-workspace test-hooks
+GATE_STEPS = validate-json validate-hooks test-install test-adopt test-workspace test-hooks test-contract
 
 validate-json:
 	@python3 -c "import json,sys; [json.load(open(f)) for f in ('.claude/settings.json','.mcp.json')]; print('→ json valid')"
@@ -37,3 +37,8 @@ test-workspace:
 test-hooks:
 	@./test/hooks.test.sh >/dev/null 2>&1 && echo "→ hook parity acceptance passed" \
 	  || { ./test/hooks.test.sh; exit 1; }
+
+# Invariants asserted straight from CONTRACT.md about the tree itself.
+test-contract:
+	@./test/contract.test.sh >/dev/null 2>&1 && echo "→ contract invariants passed" \
+	  || { ./test/contract.test.sh; exit 1; }

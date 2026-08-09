@@ -25,6 +25,5 @@ Before opening the PR, write the final position into `.workspace/MISSION.md` and
 
 `abandoned` is set only by an explicit close, never automatically.
 
-**Carry the settled decisions from `.workspace/LOG.md` into the PR body.** The worktree — and
-`LOG.md` with it — may be gone by merge time, and the PR body is the only thing that survives it.
-Nothing checks that this happened.
+Carrying `.workspace/LOG.md`'s settled decisions into the PR body is part of the PR procedure and
+is owned by **open-a-pr** — it is not restated here.

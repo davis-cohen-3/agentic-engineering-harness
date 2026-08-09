@@ -22,6 +22,12 @@ review for **logic, not formatting** — because the harness already handled the
 Use the template at `pr-description.md` (in this skill folder) as the structure.
 Fill every section. Keep the "Why" above the "What" — reviewers need intent first.
 
+**Carry the settled decisions from `.workspace/LOG.md` into the `## Decisions` section** —
+read the file and transcribe its `DECISION` entries, including what was rejected and why.
+The worktree, and `LOG.md` with it, may be gone by merge time: a retention sweep can remove a
+worktree nobody retired. The PR body is the only bridge, and **nothing checks that you did this**.
+If `LOG.md` does not exist or holds no decisions, drop the section rather than inventing content.
+
 ## 3. Open it
 - Push the branch, open the PR with `gh pr create`.
 - Title: imperative and specific ("Add retry to webhook sender", not "fixes").

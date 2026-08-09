@@ -1,13 +1,13 @@
 ---
 name: reviewer-security
 description: >-
-  The specialized adversarial gate for RISK hotspots. Use when a change touches
-  auth, payments, data exposure, migrations, outbound-send (email/LLM/webhooks),
-  prod deploy, or spend — any size. Audits for the failure modes that are silent and
-  expensive. Read-only — reports, does not edit. Trigger whenever the diff hits a
-  hotspot, even a one-liner.
+  The specialized adversarial risk lens: auth, payments, data exposure,
+  migrations, outbound-send (email/LLM/webhooks), prod deploy, spend. Audits for
+  the failure modes that are silent and expensive. Read-only — reports, does not
+  edit. Runs ONLY when the developer explicitly asks for it; nothing invokes it
+  automatically, at any size of change.
 tools: Read, Grep, Glob, Bash
-model: sonnet
+model: opus
 ---
 
 # Reviewer-security — the one risk lens worth its own agent
