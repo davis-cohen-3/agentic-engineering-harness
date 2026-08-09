@@ -102,6 +102,25 @@ is "artifacts are write-once — the original is intact" "$(cat "$SB/proj/.works
 ( cd "$SB/proj" && "$WR" handoff 'a/b' >/dev/null 2>&1 ); is "refuses a slug with a slash" "$?" 1
 ( cd "$SB" && "$WR" handoff x >/dev/null 2>&1 ); is "refuses outside a git repo" "$?" 1
 
+echo "ensure-workspace.sh — concurrent creation cannot clobber (the noclobber path)"
+# The -e check covers every non-concurrent case, so nothing exercised O_EXCL. Race N writers at a
+# genuinely empty worktree: exactly one must win and the file must never be truncated by a loser.
+rc_ok=1
+for attempt in 1 2 3; do
+  rm -rf "$SB/proj/.workspace"
+  for i in $(seq 1 25); do ( cd "$SB/proj" && "$EW" >/dev/null 2>&1 ) & done; wait
+  n=$(ls "$SB/proj/.workspace"/MISSION.md 2>/dev/null | wc -l | tr -d ' ')
+  body=$(grep -c '^state: scoping' "$SB/proj/.workspace/MISSION.md" 2>/dev/null || echo 0)
+  head=$(head -1 "$SB/proj/.workspace/MISSION.md" 2>/dev/null)
+  [ "$n" = "1" ] && [ "$body" = "1" ] && [ "$head" = "---" ] || rc_ok=0
+done
+# NOTE: this proves the OUTCOME (one intact file), not the noclobber mechanism. Every writer
+# emits identical bytes, so a clobber reproduces the same file and is indistinguishable here.
+# DECISION J's atomicity requirement that carries real risk is history/ and artifacts/, where
+# writers produce DIFFERENT content — that is covered by the 40-writer test above.
+[ "$rc_ok" = "1" ] && ok "25 racing writers x3 rounds leave exactly one intact MISSION.md" \
+  || no "a concurrent create produced a missing or truncated MISSION.md"
+
 echo "registry migration (T0.8) — and wt reads the result"
 cat >"$SB/depot-registry.yaml" <<YAML
 # a comment that must survive
@@ -147,10 +166,30 @@ is "refuses a worktree_root with no preceding repo:" "$?" 1
 printf 'profiles:\n  claude:\n    launch: c\n' >"$SB/noproj.yaml"
 "$REPO/install/migrate-registry.py" "$SB/noproj.yaml" "$SB/noproj.out" >"$SB/o" 2>&1
 is "refuses a registry with no projects: key" "$?" 1
+# Assert the MESSAGE too: exit-code-only passes identically when the script crashes, so a broken
+# guard that raises TypeError instead of refusing cleanly would read as a pass.
+{ grep -q "^migrate-registry: no top-level 'projects:' key" "$SB/o" && ! grep -q 'Traceback' "$SB/o"; } \
+  && ok "refuses cleanly — a crash would repeat the message but add a traceback" \
+  || no "exited non-zero for the wrong reason: $(head -2 "$SB/o")"
 
 echo "wt — refusals"
+# The branch and path refusals must be tested SEPARATELY. Reusing feat/thing tests both at once:
+# with the branch check disabled the path check fires, produces the same exit 1, and the
+# assertion cannot tell which rule ran — so a broken branch refusal reads as a pass.
+git -C "$SB/proj" branch -q lonelybranch 2>/dev/null
+wt --branch lonelybranch >"$SB/o" 2>&1; is "an existing branch refuses even when its path is free" "$?" 1
+grep -q "^wt: branch '.*' already exists" "$SB/o" && ok "wt's OWN refusal fired, not git's failure" \
+  || no "refused for the wrong reason: $(head -1 "$SB/o")"
+[ -e "$SB/worktrees/lonelybranch" ] && no "created a worktree despite refusing" || ok "and created nothing"
+
 wt --branch feat/thing >"$SB/o" 2>&1; is "existing branch refuses" "$?" 1
 grep -q "$SB/worktrees/thing" "$SB/o" && ok "prints the existing path" || no "did not print the path"
+
+for bad in '-rf' 'a..b' 'has space'; do
+  wt --branch "$bad" >"$SB/o" 2>&1
+  is "refuses an invalid branch name: '$bad'" "$?" 1
+  grep -q 'invalid branch name\|unknown option' "$SB/o" && ok "  says why" || no "  wrong reason: $(cat "$SB/o")"
+done
 
 mkdir -p "$SB/worktrees/taken"
 wt --branch taken >"$SB/o" 2>&1; is "existing directory refuses" "$?" 1
