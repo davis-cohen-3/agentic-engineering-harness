@@ -74,11 +74,42 @@ is "--prune exits 0" "$(runR --prune)" 0
 [ -f "$SB/.agents/skills/leftover/SKILL.md" ] && no "not pruned" || ok "dropped with --prune"
 [ -f "$SB/.agents.prev/skills/leftover/SKILL.md" ] && ok "pruned file recoverable from the backup" || no "pruned file unrecoverable"
 
+echo "a path containing a SPACE round-trips through the manifest"
+# awk '$2==p' stops at the first space, so such a path never matched its manifest entry and was
+# refused as "edited" on every subsequent run — permanently, blaming an edit that never happened.
+mkdir -p "$SB/repo/core/skills/my skill"; printf 'body\n' >"$SB/repo/core/skills/my skill/SKILL.md"
+is "installs a space-containing path" "$(runR)" 0
+grep -q 'skills/my skill/SKILL.md' "$SB/.agents/.install-manifest.sha256" \
+  && ok "the manifest records the full path" || no "manifest entry truncated at the space"
+# The manifest is only consulted when core/ has MOVED ON: an unchanged file matches by hash and
+# never reaches installed_sha. So change the source — that is the only path that reads the parse.
+printf 'upstream change\n' >>"$SB/repo/core/skills/my skill/SKILL.md"
+is "an upstream change to it does not falsely refuse" "$(runR --dry-run)" 0
+outhas 'update  1' && ok "classified as update — the manifest lookup matched" \
+  || no "manifest lookup failed; the path was refused as a local edit"
+# --prune, not a bare run: without it the now-sourceless file stays as a kept extra and every
+# later "keep" assertion counts it too.
+rm -rf "$SB/repo/core/skills/my skill"; runR --prune >/dev/null
+[ -e "$SB/.agents/skills/my skill" ] && no "the space-path leaked into later tests" || ok "cleaned up after itself"
+
+echo "~/.agents must be a real directory, not a symlink"
+# The swap replaces the whole tree, so a symlinked $DEST is consumed and its target's files are
+# silently adopted as machine-wide extras. ~/.claude is that exact shape today.
+mv "$SB/.agents" "$SB/.agents-real"; mkdir -p "$SB/other"; echo mine >"$SB/other/keepme.txt"
+ln -s "$SB/other" "$SB/.agents"
+is "refuses a symlinked ~/.agents" "$(runR)" 1
+outhas 'is a symlink to' && ok "names the link and its target" || no "did not explain why"
+[ -L "$SB/.agents" ] && ok "the link is left alone" || no "the link was consumed"
+[ -f "$SB/other/keepme.txt" ] && ok "the link's target is untouched" || no "target files were disturbed"
+is "--dry-run refuses it too" "$(runR --dry-run)" 1
+rm -f "$SB/.agents"; mv "$SB/.agents-real" "$SB/.agents"
+
 echo "a SYMLINK in the tree gets the same promise as a regular file"
 # It used to get none: -type f made it invisible to the whole plan, so the swap silently ate it
 # and "nothing is dropped without --prune" quietly did not apply.
 ln -s skills/tdd "$SB/.agents/shortcut"
-runR --dry-run >/dev/null; outhas 'keep    1' && ok "a symlink is counted, not invisible" || no "symlink missing from the plan"
+# Match the NAME under "keep", not a count — a count couples this to whatever earlier tests left.
+runR --dry-run >/dev/null; outhas '^ *shortcut$' && ok "a symlink is counted, not invisible" || no "symlink missing from the plan"
 is "exits 0" "$(runR)" 0
 [ -L "$SB/.agents/shortcut" ] && ok "the symlink survives an install" || no "the symlink was silently eaten"
 [ "$(readlink "$SB/.agents/shortcut")" = "skills/tdd" ] && ok "and is still a link, not a copy of its target" \

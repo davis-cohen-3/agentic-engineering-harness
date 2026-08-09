@@ -59,6 +59,16 @@ rels() { (cd "$1" && find . \( -type f -o -type l \) ! -name "$MANIFEST_REL" | s
 [ -d "$SRC" ] || die "no core/ payload at $SRC"
 command -v shasum >/dev/null || die "shasum not found"
 
+# ~/.agents must be a real directory. The swap below replaces the whole tree, so a symlink here is
+# consumed and its target's files are silently adopted as machine-wide extras. Provider homes
+# symlink INTO ~/.agents, never the reverse (CONTRACT §5) — and ~/.claude is that exact shape
+# today, so the mistake is one keystroke away.
+if [ -L "$DEST" ]; then
+  die "$DEST is a symlink to $(readlink "$DEST").
+  ~/.agents/ must be a real directory: install.sh replaces the whole tree, which would
+  consume the link and adopt its target's files. Move or remove the link, then re-run."
+fi
+
 # An interrupted swap leaves the tree at $BACKUP and no $DEST. Say so before doing anything else.
 if [ -e "$SWAP_FLAG" ]; then
   say "⚠ a previous run was interrupted mid-swap."
@@ -114,7 +124,10 @@ have_manifest=0
 
 installed_sha() {
   [ "$have_manifest" -eq 1 ] || return 1
-  local s; s="$(awk -v p="$1" '$2==p{print $1}' "$DEST/$MANIFEST_REL")"
+  # The path is everything after the hash and its two-space separator — $2 would stop at the
+  # first space, so a path containing one never matches and the file is refused as "edited"
+  # forever, blaming a local edit that does not exist.
+  local s; s="$(awk -v p="$1" '{h=$1; sub(/^[^ ]+  /,""); if ($0==p) print h}' "$DEST/$MANIFEST_REL")"
   [ -n "$s" ] && { printf '%s' "$s"; return 0; } || return 1
 }
 
