@@ -21,14 +21,14 @@ Every acceptance line in `plan/tasks.md` was *observed*, not asserted. Where an 
 was a machine mutation that Wave 1 owns, it was exercised against a sandbox `$HOME` or a
 disposable git repo in a temp dir instead — stated per task below.
 
-Five suites, **245 assertions**, all passing and all wired into `make check`:
+Five suites, **265 assertions**, all passing and all wired into `make check`:
 
 | Suite | Covers | Assertions |
 | --- | --- | --- |
-| `test/install.test.sh` | T0.4 | 33 |
+| `test/install.test.sh` | T0.4 | 49 |
 | `test/adopt.test.sh` | T0.5 | 32 |
-| `test/workspace.test.sh` | T0.7 – T0.10 | 76 |
-| `test/hooks.test.sh` | T0.11 | 53 |
+| `test/workspace.test.sh` | T0.7 – T0.10, T0.8 shape guards | 80 |
+| `test/hooks.test.sh` | T0.11, T0.16 | 53 |
 | `test/contract.test.sh` | T0.12 – T0.15 | 51 |
 
 `make check` also validates both providers' JSON config, that all 9 hooks are executable, and —
@@ -55,7 +55,7 @@ suite was previously silently never run.
 | **T0.13** Retire old surfaces | `FLOOR.md` removed and its content redistributed per DECISION I (the gate **retained**); `work` target and `install-global` removed with tombstones. ⚠ The `.claude/active-spec` half was **done wrong and caught by T0.16** — see C1. |
 | **T0.14** Instruction files and docs | `AGENTS.md` is the single profile, `CLAUDE.md` a seven-line stub. `agent_docs/` retired into `adopt/docs/` (and now travels, write-only-when-absent). Planning artifacts moved under the epic. Two real gaps found by the new assertions: `prototype` and `research` had no `STARTER_CHARACTER`, and `PLAN-MODE.md` still routed output to `thoughts.md`. |
 | **T0.15** Acceptance scenario | 40 steps across 11 phases; every CONTRACT §7 claim mapped, every step carries an observable. Internal completeness is itself gate-asserted — verified by injecting three failure shapes and watching each fail. T0.16 found Depot unexercised and added steps C4–C5. |
-| **T0.16** Adversarial + security review | Both reviewers run. **One critical security bypass, one high-severity contract violation, three must-fix correctness bugs, six hollow assertions** — all fixed with mutation-tested guards; eight findings accepted in writing. Full record: [`T0.16-REVIEW.md`](./T0.16-REVIEW.md). |
+| **T0.16** Adversarial + security review | Both reviewers run. **One critical security bypass, one high-severity contract violation, three must-fix correctness bugs, six hollow assertions** — all fixed with mutation-tested guards. The eight initially accepted findings were then walked one by one with the developer: **six were fixed after all**, three stand by explicit decision. Full record: [`T0.16-REVIEW.md`](./T0.16-REVIEW.md). |
 
 ## What T0.16 changed about the earlier tasks
 
@@ -66,7 +66,8 @@ here because a verification report that only lists successes is not a verificati
   so a Codex agent could write a benign file and rename it onto `.env`. T0.11's payload model was
   built from 118 *observed* payloads, none of which was a rename — **observed traffic is not the
   grammar**. Confirmed against the `codex 0.147.0` binary, which carries all four directives.
-  Melting's `origin/main` has the same gap and needs the same fix.
+  Melting's `origin/main` has the same gap. A verified patch for it is at
+  `patches/melting-protect-secrets-move-to.patch`; applying it is the developer's action.
 - **C1.** T0.13 removed `.claude/active-spec` from `.gitignore` but not from disk, so the next
   `git add -A` **committed** the retired surface. The commit message claimed otherwise.
 - **C2.** The Stop gate never fired in this repo: it grepped for `^check:` in a `Makefile` that
@@ -127,7 +128,7 @@ Read, in this order: `DECISIONS-PENDING.md` → `CONTRACT.md` → `plan/tasks.md
 `T0.16-REVIEW.md`. Then begin **Wave 1**. Everything in Wave 0 is settled — do not reopen it.
 
 **Branch:** `wave0/harness-standardization`, 20 commits, nothing pushed. `make check` is green
-and runs all 245 assertions.
+and runs all 265 assertions.
 
 **Structure** (the plan's older files describe the pre-restructure layout):
 

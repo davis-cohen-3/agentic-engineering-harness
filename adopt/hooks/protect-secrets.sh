@@ -10,6 +10,8 @@
 # The apply_patch fallback below is harvested from melting `origin/main`, blob
 # 7687e47a0caa6a75cdf880cf8ae1e258c9dec979 (commit 4d554c16, 2026-08-02). Commit 95fa9b1 lives
 # only on `origin/agent/codex-hook-matcher` and is deliberately NOT harvested.
+# Faithfulness to that blob was verified by direct comparison on 2026-08-09. The SHA is recorded
+# so a reader can repeat that comparison — nothing re-checks it automatically.
 #
 # ONE DEVIATION from that blob, deliberate: it parses only the three `*** ... File:` headers, so a
 # `*** Move to:` rename destination was never path-checked — an agent could write a benign file and

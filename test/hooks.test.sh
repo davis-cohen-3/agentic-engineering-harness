@@ -180,8 +180,13 @@ grep -q "$HOME" "$T/.codex/hooks.json" \
   && no "an absolute machine path leaked into the Codex binding" || ok "no absolute machine path in the Codex binding"
 
 echo "provenance"
+# A marker, not proof: this greps the file for a SHA the file's own author wrote, so it catches a
+# SHA that was removed or altered, NOT an unfaithful harvest. Faithfulness was verified against
+# melting by direct comparison (twice, on 2026-08-09) and is deliberately not re-checked here —
+# doing so would make a green gate depend on another repo being present and on its remote state.
 grep -q '7687e47a0caa6a75cdf880cf8ae1e258c9dec979' "$REPO/adopt/hooks/protect-secrets.sh" \
-  && ok "the harvest blob SHA is recorded in the script" || no "harvest provenance not recorded"
+  && ok "the harvest blob SHA is RECORDED (marker only — faithfulness verified out-of-band)" \
+  || no "harvest provenance not recorded"
 
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

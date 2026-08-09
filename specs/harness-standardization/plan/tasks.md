@@ -260,7 +260,7 @@ runtime state. Use a standalone script or a Codex session.
 | T1.6 | Activate the migrated registry | |
 | T1.7 | Configure both providers' worktree roots; register `WorktreeCreate` | falls back safely if a setting is absent |
 | T1.8 | Trust `inject-global-rules.sh` in `~/.codex/hooks.json` and observe it fire | **descoped by decision K** — the six safety hooks are repo-owned, registered by `copy.sh` |
-| T1.9 | Codex plugin-scoping experiment | in a **disposable** trusted repo |
+| T1.9 | Codex plugin-scoping experiment, **and how Codex treats a hook exit code of 127** | in a **disposable** trusted repo. 127 is what a binding returns if `git rev-parse` fails inside the repo; every hook fails OPEN on a missing `jq`, so this is the one dependency that degrades into undefined behaviour. Decide with data (T0.16 #8). |
 
 ### T1.3 — measured, not predicted (added by T0.16, 2026-08-09)
 
