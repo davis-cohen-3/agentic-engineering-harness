@@ -1,9 +1,9 @@
-# agent_docs/adr/ — Architecture Decision Records
+# docs/adrs/ — Architecture Decision Records
 
 Durable, repo-level decision memory: one file per significant decision, in order. An ADR
 answers *"why is the system built this way?"* for whoever (human or agent) later wants to
 undo it. Distinct from a spec's **Resolved decisions** (task-local, consumed once) and a
-spec's `thoughts.md` (one task's planning path) — see `../README.md` for the three layers.
+worktree's `.workspace/LOG.md` (one task's planning ledger, disposable) — see `../INDEX.md`.
 
 ## When a decision earns an ADR
 Only when it's **hard to reverse + surprising + a real trade-off**. Easy-to-reverse or obvious
@@ -11,11 +11,12 @@ decisions stay in the spec — an ADR for them is noise. Qualifying examples: "m
 cents, never floats", "auth is stateless JWT, not sessions", "orders use optimistic locking,
 accepting retry-on-conflict".
 
-## How one gets written — in plan mode
+## How one gets written — proposed, never automatic
 While `write-plan` synthesizes a spec's Resolved decisions, any that clears the bar above is
-promoted here instead of buried in the spec; the spec then references it. A build run never
-writes one — `diagnose` may *flag* that an architectural decision is needed, but that routes
-back to plan mode (architecture is a design decision, not an autonomous edit).
+**proposed** as an ADR — the skill names the candidate and asks. **No skill writes an ADR on its
+own.** A build run never writes one either: `diagnose` may *flag* that an architectural decision
+is needed, but that routes back to plan mode (architecture is a design decision, not an
+autonomous edit). Accepted candidates ship as a separate PR at merge time.
 
 ## Lifecycle — append-only
 - Number monotonically: `NNNN-slug.md`, zero-padded (`ls` this dir → next; start `0001`).

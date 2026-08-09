@@ -13,4 +13,4 @@ keep it to what changes how an agent navigates and what it must not break.>
 <Rules that must hold — the things a change must not break.>
 
 ## Tread carefully
-<Areas that are off-limits or need extra care — ties to the risk hotspots in CLAUDE.md.>
+<Areas that are off-limits or need extra care — ties to the risk hotspots in AGENTS.md.>

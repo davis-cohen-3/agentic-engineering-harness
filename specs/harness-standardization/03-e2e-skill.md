@@ -3,7 +3,7 @@
 > **Void.** Decision G removed E2E from the harness contract entirely — it fails the portability test. smoke-screen keeps its own `e2e-test` skill.
 >
 > **Authority:** `DECISIONS-PENDING.md` → `CONTRACT.md` →
-> `docs/HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md` → `plan/tasks.md`.
+> `HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md` → `plan/tasks.md`.
 > Retained as provenance and research. Harvest evidence from it; do not run its instructions.
 >
 > *Bannered 2026-08-08.*

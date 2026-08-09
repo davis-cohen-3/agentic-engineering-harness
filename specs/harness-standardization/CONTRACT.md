@@ -2,10 +2,10 @@
 
 **Status:** Reconciled against all settled decisions. Not yet implemented — nothing here has been built.
 **Settled:** 2026-08-07 (DEC-1…15) and 2026-08-08 (A–J), across two decision passes and two audits.
-**Authority:** [`DECISIONS-PENDING.md`](./DECISIONS-PENDING.md) outranks this document; this document
-outranks [`docs/HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md`](../../docs/HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md),
-which outranks `plan/tasks.md`. `PRE-IMPLEMENTATION-CONTRACT-AUDIT.md` and `01-*.md`…`08-*.md` are
-historical and not executable.
+**Authority:** [`DECISIONS-PENDING.md`](./DECISIONS-PENDING.md) → `CONTRACT.md` (this file) →
+[`HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md`](./HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md) →
+[`plan/tasks.md`](./plan/tasks.md). Where any two disagree, the higher wins.
+`PRE-IMPLEMENTATION-CONTRACT-AUDIT.md` and `01-*.md`…`08-*.md` are historical and not executable.
 
 This is the self-contained statement of the operating model. Verified machine facts and the
 reasoning behind each choice live in the decisions file; this document states what is true.

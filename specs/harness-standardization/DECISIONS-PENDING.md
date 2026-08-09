@@ -10,7 +10,7 @@ moved, or migrated on the machine; no other repository has been touched.
 
 1. **This file** — the decisions, and the verified facts behind them.
 2. **`CONTRACT.md`** — the operating model, reconciled against this file.
-3. **`docs/HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md`** — DEC-1…15 evidence and provenance.
+3. **`HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md`** — DEC-1…15 evidence and provenance.
 4. **`plan/tasks.md`** — the execution plan.
 5. **`PRE-IMPLEMENTATION-CONTRACT-AUDIT.md`** — historical; superseded wherever this file differs.
 6. **`01-*.md` … `08-*.md`** — legacy, superseded, not executable.

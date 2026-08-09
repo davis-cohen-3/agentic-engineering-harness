@@ -227,7 +227,7 @@ duplicate *claims* and stale navigational surfaces:
    invariants in `agent_docs/`; remove duplicated architecture facts from provider floors and human
    narrative docs. Keep a tiny map/pointer in `AGENTS.md`.
 3. **Keep `docs/` out of the adopted agent context.** `docs/SOURCES.md`, `docs/recommended/*`, and
-   `docs/ARCHITECTURE-REVIEW-2026-07.md` are valuable harness-author history/catalogs, but they are
+   `research/ARCHITECTURE-REVIEW-2026-07.md` are valuable harness-author history/catalogs, but they are
    not runtime repository truth for an adopting codebase. Mark them as research/reference and stop
    using them as operational sources.
 4. **Retire stale catalogs.** The current audit already found that the skill catalog omits newer

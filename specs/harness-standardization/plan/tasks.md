@@ -10,11 +10,11 @@ The ordered, executable plan. Every task below derives from a settled decision; 
 reopens one.
 
 **Authority:** [`../DECISIONS-PENDING.md`](../DECISIONS-PENDING.md) → [`../CONTRACT.md`](../CONTRACT.md) →
-[`../../../docs/HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md`](../../../docs/HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md) →
+[`../HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md`](../HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md) →
 this file. Where any two disagree, the higher wins.
 
 **Superseded and not executable:** `../README.md`, `../01-*.md` … `../08-*.md`,
-`../PRE-IMPLEMENTATION-CONTRACT-AUDIT.md`, `docs/HIGH-LEVEL-CONTEXT.md`. Each carries a banner.
+`../PRE-IMPLEMENTATION-CONTRACT-AUDIT.md`, `../HIGH-LEVEL-CONTEXT.md`. Each carries a banner.
 Harvest research from them; do not run their instructions.
 
 **This file replaces the previous 14-task plan**, which assumed `~/agents` as canonical,

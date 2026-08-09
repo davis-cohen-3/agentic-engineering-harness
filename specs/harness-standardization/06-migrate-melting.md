@@ -3,7 +3,7 @@
 > Deletes the Makefile and omits the required per-file docs merge, the workspace-doc rewrite, and the nested-worktree cleanup. Replaced by task T2.3.
 >
 > **Authority:** `DECISIONS-PENDING.md` → `CONTRACT.md` →
-> `docs/HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md` → `plan/tasks.md`.
+> `HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md` → `plan/tasks.md`.
 > Retained as provenance and research. Harvest evidence from it; do not run its instructions.
 >
 > *Bannered 2026-08-08.*

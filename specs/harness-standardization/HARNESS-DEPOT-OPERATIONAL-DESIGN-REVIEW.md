@@ -660,7 +660,7 @@ Depot ADR 0004 and `specs/control-plane-v1/README.md` stand unamended. Depot may
 
 **Downstream effects (not yet applied):**
 
-- `docs/HIGH-LEVEL-CONTEXT.md` lines ~226–305 must stop asserting that Depot owns worktree and
+- `HIGH-LEVEL-CONTEXT.md` lines ~226–305 must stop asserting that Depot owns worktree and
   workspace lifecycle, and must drop `depot worktree create`, `depot workspace init`,
   `depot workspace orient`, and `depot workspace bind` as the named commands.
 - `specs/harness-standardization/plan/tasks.md` lines ~204–216 must have those four commands
@@ -805,7 +805,7 @@ to one untracked file per worktree.
   | `specs/templates/t2/spec.thoughts.md` | delete |
   | `specs/templates/t2/spec.context.md` | reconcile with the retirement of `.context/` |
   | `specs/README.md`, `specs/harness-standardization/plan/tasks.md` | convention references |
-  | `docs/HIGH-LEVEL-CONTEXT.md`, `docs/PLAN-MODE.md` | convention references |
+  | `HIGH-LEVEL-CONTEXT.md`, `docs/PLAN-MODE.md` | convention references |
   | `agent_docs/adr/README.md` | retired with `agent_docs/` (Decision 13) |
 
 - `overview-fresh` assumes a **spec directory** holding `overview.html`, `thoughts.md`, and
@@ -815,7 +815,7 @@ to one untracked file per worktree.
 - `melting-v2/docs/workspace.md` and `melting-v2/docs/agent-environment.md` describe the
   `workspace.md` / `scoping/` / `spec/` / `<utc>-<type>-<uuid>.md` model throughout. Both require
   wholesale rewriting, not patching.
-- `docs/HIGH-LEVEL-CONTEXT.md` lines ~208–292 specify typed history subdirectories and a
+- `HIGH-LEVEL-CONTEXT.md` lines ~208–292 specify typed history subdirectories and a
   `history/README.md`; both must change to the flat convention.
 - This document's `.workspace/` contract block and the §"Handoff, verify, and ship" paths
   (`history/handoffs/...`, `history/verification/...`) must change to flat filenames.
@@ -898,7 +898,7 @@ A Stop/SessionEnd hook on both providers may *remind*, but the contract must not
 **Downstream effects (not yet applied):**
 
 - This document's §2 illustrative `MISSION.md` (six frontmatter fields, six sections) is superseded.
-- `docs/HIGH-LEVEL-CONTEXT.md`'s lifecycle list (`scoping → ... → verified → completed or
+- `HIGH-LEVEL-CONTEXT.md`'s lifecycle list (`scoping → ... → verified → completed or
   abandoned`) and its "identify the repository, branch/workspace, and linked spec" sentence must be
   replaced by the four-state vocabulary and two-field frontmatter.
 - `melting-v2/docs/workspace.md`'s `active`/`blocked`/`completed`/`abandoned` states and
@@ -948,7 +948,7 @@ Decision 8.
 
 **Downstream effects (not yet applied):**
 
-- `docs/HIGH-LEVEL-CONTEXT.md` — remove `<slug>.scoping.md` from the canonical project structure,
+- `HIGH-LEVEL-CONTEXT.md` — remove `<slug>.scoping.md` from the canonical project structure,
   the `specs/` section, the T3 epic shape, the ownership/promotion chain, the source-of-truth table,
   and convergence-audit item 4.
 - This document — delete §5 "Synthesize scoping", the `specs/<slug>.scoping.md` source-of-truth row,
@@ -1010,7 +1010,7 @@ build worktrees.
   `.gitignore` entry.
 - `.claude/rules/specs.md` — delete the "Bind the worktree to it" bullet.
 - `specs/README.md` — delete the "Binding a worktree to its spec" section.
-- `docs/HIGH-LEVEL-CONTEXT.md` — delete the `depot workspace bind` paragraph and the stale-binding
+- `HIGH-LEVEL-CONTEXT.md` — delete the `depot workspace bind` paragraph and the stale-binding
   discussion.
 - This document — rewrite §7 "Bind the formal spec".
 - `melting-v2/docs/workspace.md`'s note that `make work` writes a now-inert pointer is resolved by
@@ -1045,7 +1045,7 @@ workflow semantics or pretend to prevent file-level conflicts." Depot's deleted
 
 **Downstream effects (not yet applied):**
 
-- `docs/HIGH-LEVEL-CONTEXT.md` and this document should state the no-protocol position explicitly
+- `HIGH-LEVEL-CONTEXT.md` and this document should state the no-protocol position explicitly
   rather than leaving locking "not yet specified".
 - Contradiction 9 (concurrency) is resolved.
 
@@ -1092,7 +1092,7 @@ work**, Code changes, Open questions/blockers, Next steps), moving from the comm
 - The shipping skill must compose the PR description from `LOG.md`'s settled decisions.
 - This document's §11 "Findings and cleanup" — delete the status vocabulary and the preservation
   requirement.
-- `docs/HIGH-LEVEL-CONTEXT.md` — delete the finding-status sentence and the promotion-before-removal
+- `HIGH-LEVEL-CONTEXT.md` — delete the finding-status sentence and the promotion-before-removal
   expectation.
 - Contradictions 10 (cleanup) and 13 (promotion) are resolved.
 
@@ -1167,7 +1167,7 @@ secret in a provider directory, one character from `~/.agents/`.
 - `~/.zshrc` — update the `secrets.env` source path.
 - `~/.agents/rules/00-preferences.md` and `secrets.md` both name `~/.claude/secrets.env` and must be
   updated. (These are the same files currently at `~/agents/claude/rules/`.)
-- `docs/HIGH-LEVEL-CONTEXT.md` and `specs/harness-standardization/plan/tasks.md` both name
+- `HIGH-LEVEL-CONTEXT.md` and `specs/harness-standardization/plan/tasks.md` both name
   `~/agents/` as the canonical root and must be rewritten to `~/.agents/`.
 - The 20/9/11 skill split must be reconciled into one canonical set (Decision 11).
 - The four Codex agents are `.toml` while Claude's are `.md`; a canonical `agents/` source needs a
@@ -1220,7 +1220,7 @@ flattens all 20 skills into one directory and loses the distinction.
 - Every currently-global area pack becomes opt-in. ⚠ Verify in Decision 12 whether Codex's plugin
   model supports anything other than global enablement; if not, "opt-in per project" is not
   achievable there and needs an explicit exception.
-- `docs/HIGH-LEVEL-CONTEXT.md`'s machine-layer section should state the portability test explicitly
+- `HIGH-LEVEL-CONTEXT.md`'s machine-layer section should state the portability test explicitly
   rather than listing example skills.
 - Contradiction 11 (skill parity) is scoped by this decision and resolved in Decisions 11–12.
 
@@ -1299,7 +1299,7 @@ bodies should stay short enough that divergence is cheap to spot.
 `[projects."…"]` sections carry only `trust_level` — no per-project plugin key exists. Codex plugin
 enablement appears **global-only**, which is an accepted exception to DEC-10's "area packs are never
 global." LSP arrives via language-specific official plugins that activate automatically
-(`docs/SKILL-CATALOG-RESEARCH-2026-08.md:76`); global enablement is harmless because a language
+(`research/SKILL-CATALOG-RESEARCH-2026-08.md:76`); global enablement is harmless because a language
 plugin is inert without a matching language.
 
 **e) Security review — pin the strongest tier.** Claude's `reviewer-security` moves from
@@ -1385,7 +1385,7 @@ conventions under DEC-5, but deleting them is optional cleanup, **not** part of 
 
 - Making this review the canonical implementation handoff means moving it to
   `specs/harness-standardization/`.
-- `docs/HIGH-LEVEL-CONTEXT.md` states that `docs/agent-guidance/` and a single `docs/` namespace are
+- `HIGH-LEVEL-CONTEXT.md` states that `docs/agent-guidance/` and a single `docs/` namespace are
   the target but does not say where planning artifacts go; add the `specs/<epic>/` rule.
 - Eleven files in the harness `.claude/` tree reference `agent_docs/` and must be retargeted.
 - Contradiction 4 (documentation namespace) is resolved.
@@ -1447,7 +1447,7 @@ is deliberately left out of the harness contract.
 **Downstream effects (not yet applied):**
 
 - This document's §10 seven-step pre-ship sequence is superseded by the three local steps above.
-- `docs/HIGH-LEVEL-CONTEXT.md`'s shipping guidance must match.
+- `HIGH-LEVEL-CONTEXT.md`'s shipping guidance must match.
 - `open-a-pr` gains the "compose the description from `LOG.md` decisions" step.
 - Contradiction 15 is closed as a non-issue.
 
@@ -1543,14 +1543,14 @@ Every document that must change. Nothing below has been modified.
 
 | Document | Conflict |
 | --- | --- |
-| `docs/HIGH-LEVEL-CONTEXT.md` | Depot ownership; `depot worktree/workspace` commands; `<slug>.scoping.md`; `thoughts.md`; typed history subdirectories + `history/README.md`; five-state lifecycle; `{path, commit}` binding and drift; finding status; promotion-before-removal; `~/agents/` as canonical root; machine core listed by example rather than by the portability test; no rule for planning-artifact placement |
+| `HIGH-LEVEL-CONTEXT.md` | Depot ownership; `depot worktree/workspace` commands; `<slug>.scoping.md`; `thoughts.md`; typed history subdirectories + `history/README.md`; five-state lifecycle; `{path, commit}` binding and drift; finding status; promotion-before-removal; `~/agents/` as canonical root; machine core listed by example rather than by the portability test; no rule for planning-artifact placement |
 | `specs/harness-standardization/plan/tasks.md` | lines ~204–216 require the four `depot` commands; resolved-direction bullets assume `scoping.md` and `thoughts.md`; internal contradiction with line ~299 |
 | `specs/README.md` | the entire four-surface "Where context lives" model; "Binding a worktree to its spec" |
 | `.claude/rules/specs.md` | `make work` bind bullet; `<slug>.thoughts.md`; `.context/`; `agent_docs/` |
 | `Makefile` | `work` target; `install-global` pushes `.claude/{skills,agents,commands}` wholesale with no core/project-layer distinction |
 | `specs/templates/{t1,t2,t3}/` | `*.context.md`, `spec.thoughts.md`, `spec.sessions/`; T3 `README.md` needs a `## Resolved decisions` section |
 | `agent_docs/` | retired → `docs/` |
-| `docs/ARCHITECTURE-REVIEW-2026-07.md`, `docs/DOCUMENTATION-ARCHITECTURE-RESEARCH-2026-07.md` | superseded — retire |
+| `research/ARCHITECTURE-REVIEW-2026-07.md`, `research/DOCUMENTATION-ARCHITECTURE-RESEARCH-2026-07.md` | superseded — retire |
 | `docs/OVERLAY-CONTRACT.md`, `AGENT-ANTIPATTERNS.md`, `CLAUDE-CODE-RULES.md`, `PLAN-MODE.md`, `SOURCES.md` | per-file call: durable → `docs/`, planning → `specs/harness-standardization/`, stale → retire |
 
 **`agentic-engineering` — skills, agents, hooks**
@@ -1709,7 +1709,7 @@ The intended experience is:
 
 ## Primary sources reviewed
 
-- `/Users/daviscohen/dev/agentic-engineering/docs/HIGH-LEVEL-CONTEXT.md`
+- `/Users/daviscohen/dev/agentic-engineering/HIGH-LEVEL-CONTEXT.md`
 - `/Users/daviscohen/dev/agentic-engineering/specs/harness-standardization/plan/tasks.md`
 - `/Users/daviscohen/dev/agentic-engineering/specs/harness-standardization/README.md`
 - `/Users/daviscohen/dev/agentic-engineering/README.md`

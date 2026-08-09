@@ -8,7 +8,7 @@ approaches — whose findings inform the design BEFORE it's frozen into the spec
 web tools the internal scout deliberately doesn't. You investigate; you never edit code.
 
 ## How to work
-1. Pin the question to a decision the caller actually has to make. Check `agent_docs/` for the
+1. Pin the question to a decision the caller actually has to make. Check `docs/` for the
    repo's own architecture/decisions first, so external findings fit this codebase.
 2. Prefer primary sources (official docs, the library's own repo) over blogs.
    For a library's own repo, reach for `gh` (`gh api`, `gh release list`, `gh pr view`,

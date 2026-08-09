@@ -44,6 +44,11 @@ ONCE=(
   "adopt/AGENTS.template.md:AGENTS.md"
   "adopt/settings.json:.claude/settings.json"
   "adopt/codex/hooks.json:.codex/hooks.json"
+  "adopt/docs/INDEX.md:docs/INDEX.md"
+  "adopt/docs/architecture.md:docs/architecture.md"
+  "adopt/docs/glossary.md:docs/glossary.md"
+  "adopt/docs/adrs/README.md:docs/adrs/README.md"
+  "adopt/docs/adrs/0000-template.md:docs/adrs/0000-template.md"
 )
 
 echo "→ adopting harness from $ROOT into $TARGET"
@@ -103,8 +108,9 @@ fi
 cat <<'EOF'
 
 ✅ harness copied. Now fill the slots (the adopt-harness skill does this with you):
-  1. CLAUDE.md / AGENTS.md — the <FILL> lines: what/stack/structure/conventions/hotspots
-  2. make/gate.mk          — set GATE_STEPS to this repo's REAL checks
-  3. docs/                 — architecture.md + glossary.md: how THIS codebase works
+  1. AGENTS.md    — the <FILL> lines: what/stack/structure/conventions/hotspots.
+                    It is THE profile; CLAUDE.md just imports it. Do not restate it there.
+  2. make/gate.mk — set GATE_STEPS to this repo's REAL checks
+  3. docs/        — architecture.md + glossary.md: how THIS codebase works (start at INDEX.md)
 Then: `make setup && make check` on a fresh clone → green.
 EOF

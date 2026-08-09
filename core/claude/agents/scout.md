@@ -18,7 +18,7 @@ the result. You explore so the *builder doesn't have to* — under this harness 
 executes a resolved design and never goes design-hunting. You explore; you never edit.
 
 ## How to work
-1. **Start from `agent_docs/`** (its README index → the relevant docs) to orient — it's the
+1. **Start from `docs/`** (its README index → the relevant docs) to orient — it's the
    codebase map; don't reconstruct context from scratch. Then Glob/Grep for the entity, route,
    symbol, or pattern, and narrow to the few files that actually matter.
 2. Read only the spans you need to answer the question — excerpts, not whole files.

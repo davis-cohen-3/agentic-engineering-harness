@@ -3,7 +3,7 @@
 > Deletes the Makefile and combines a Smoke migration with an unsequenced machine sweep. Split into task T2.2 and Wave 1.
 >
 > **Authority:** `DECISIONS-PENDING.md` → `CONTRACT.md` →
-> `docs/HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md` → `plan/tasks.md`.
+> `HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md` → `plan/tasks.md`.
 > Retained as provenance and research. Harvest evidence from it; do not run its instructions.
 >
 > *Bannered 2026-08-08.*
@@ -76,7 +76,7 @@ Confirm and close, in this order:
 - **`dev/archive/*`** — five repos with `CLAUDE.md`, archived. **No action, explicitly recorded.**
 - **`life/CLAUDE.md`, `personal/CLAUDE.md`** — loose non-code directories. No action.
 - **The ~100 worktree config directories** — no action, per epic decision 7.
-- **Retire `docs/ARCHITECTURE-REVIEW-2026-07.md`'s open question** "Should an unconfigured
+- **Retire `research/ARCHITECTURE-REVIEW-2026-07.md`'s open question** "Should an unconfigured
   `make check` fail, warn-and-pass, or be replaced?" — answered by this epic. Append the answer
   and a pointer to this spec rather than editing the review's body; it is a dated audit record.
 
@@ -130,7 +130,7 @@ only then touch anything else.
 - `smoke/code/smoke-screen/make/gate.mk` — holds the build-is-typecheck and no-formatter facts
 - `smoke/code/smoke-screen/{apps/smoke-web,apps/smoke-admin,services/api}/CLAUDE.md` — the prior art
 - `smoke/code/smoke-screen/scripts/link-worktree-env.sh` — the bootstrap step
-- `docs/ARCHITECTURE-REVIEW-2026-07.md` §8 — the open question to close
+- `research/ARCHITECTURE-REVIEW-2026-07.md` §8 — the open question to close
 - This epic's README — the audit table `audit-harness.sh` reproduces
 
 ## Verification

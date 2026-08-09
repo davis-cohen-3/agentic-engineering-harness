@@ -1,119 +1,117 @@
-# specs/ — the plan→build handoff artifacts
+# specs/ — the plan→build handoff
 
-A spec is what replaces YOU in an autonomous build run. Plan mode
-(`brainstorm → grill-me → write-plan`) produces specs here; build runs consume them (the
-orchestrator's dispatch prompt points each run at its spec). Specs are **committed** — they
-travel into the sandbox via the clone, so a build run can read the one it's assigned.
+A spec is what **replaces you in an autonomous build run**. The builder reads it and cannot ask a
+question, so the bar is *survives-your-absence*. Specs are **committed** — they travel into a
+sandbox clone, so a build run can read the one it was pointed at.
 
-## Where context lives (worktree ↔ spec ↔ shared docs)
-A unit of work = a **task branch**, checked out in isolation — a local **git worktree** when
-you work by hand, or a **burrow sandbox clone** in an autonomous run. Same thing: one isolated
-checkout on one branch. Context splits into two halves by lifetime:
+## Two modes — design in plan, execute in build
+**Plan mode** is interactive: it resolves the design and writes the spec. **Build mode** is
+autonomous: it executes the spec and does **not** redesign.
 
-- **Task-local — travels WITH the branch, in the spec folder.** `<slug>.md` (the plan, read by
-  the build), `<slug>.thoughts.md` (the planning path — plan-only, NOT read by the build), and
-  `<slug>.sessions/` (mid-build session-to-session state). This is the memory *of this one piece
-  of work*; it lives and dies with the branch.
-- **Worktree-local scratch — does NOT travel, gitignored.** `.context/<slug>.md` — an
-  uncommitted notepad: the messy, real-time working buffer for *this checkout*, spanning
-  plan→build→test (dead-ends, raw test output, open threads). It survives compaction (the
-  `SessionStart` hook re-surfaces its path on every start/resume/compact) but never the merge —
-  it's the **scratch inbox**, not a source of truth. Anything durable graduates OUT of it into
-  the committed artifacts above; the buffer is then discarded. Detailed in the companions section.
-- **Repo-level — SHARED, referenced not copied.** `agent_docs/architecture.md` + `glossary.md`
-  (current system shape + domain language) and `agent_docs/adr/` (durable, append-only
-  decisions). Every branch sees the same copy; a spec *links* these, never duplicates them.
+- `brainstorm` → `grill` → `write-plan` produce the spec.
+- `tdd` / `diagnose` / `verify-before-done` / `open-a-pr` execute it.
+- **One run builds one task.** A build is never split across sub-agents.
+- **Spec not `ready`, or an unresolved design question? HARD-STOP and flag it.** Do not invent
+  the design — hand back "blocked: design gap at <X>". This is the rule the whole model rests on.
 
-So the spec folder holds *this task's* memory; `agent_docs/` + ADRs hold *the repo's*.
+## Task tiers — they size the response, nothing else
+| Tier | Work | Spec shape |
+| --- | --- | --- |
+| **T0** | trivial — a typo, a constant, a one-line fix | none |
+| **T1** | small, obvious approach | a few lines: goal + acceptance + one pointer (`templates/t1/`) |
+| **T2** | a standard feature | the full single-file spec (`templates/t2/`) |
+| **T3** | a multi-task epic | an `<epic>/` folder: index README + ordered sub-specs (`templates/t3/`) |
 
-**Binding a worktree to its spec.** Each worktree records the exact spec it's on in a gitignored
-pointer, `.claude/active-spec` (one line — the path, e.g. `specs/<epic>/02-gate.md`). Set it
-**eagerly** when work begins — `make work SPEC=specs/<slug>.md` by hand, or the orchestrator
-writes it at clone for an autonomous run (it already has the spec in the dispatch prompt). The
-`SessionStart` hook (`.claude/hooks/spec-session-orient.sh`) reads that pointer and injects
-"here's your spec" into every session — local, resumed, or post-compaction — so you never hand it
-the path. With no pointer it falls back to the branch name (`specs/<branch>.md|/`, then the last
-segment) and, on a hit, **self-binds** by writing the pointer for you — so a forgotten eager bind
-still re-anchors and stays stable across renames. The explicit pointer is what covers T3 epics and
-branches whose name ≠ the spec slug. `.claude/rules/specs.md` then reinforces the spec conventions
-the moment a spec file is opened.
+`make check`, risk-review on a hotspot, and `verify-before-done` **never scale down** — no tier
+exempts them.
+
+## Where the thinking lives before it becomes a spec
+Planning output is **not** committed scratch. It accumulates in the worktree's untracked
+`.workspace/`, and the spec is what graduates out of it:
+
+```text
+.workspace/LOG.md  →  specs/<slug>.md                     (T0–T2)
+.workspace/LOG.md  →  specs/<epic>/README.md + 01-*.md    (T3)
+```
+
+- **`.workspace/LOG.md`** — the ordered ledger of `DECISION` / `QUESTION` entries with their
+  evidence, rejected alternatives, and consequences. Appended to as you brainstorm and grill.
+  It is the direct input to `write-plan`.
+- **`.workspace/history/`** — immutable `handoff` and `finding` records.
+- Both are **untracked and disposable**; they die with the worktree.
+
+**There is no scoping document.** Curated framing lives inside the spec, in sections it already
+has: `## Problem / Solution / User stories`, `## Out of scope`, `## Resolved decisions`.
+
+**Retired outright** — if you find one of these, it is a leftover:
+
+| Surface | Replaced by |
+| --- | --- |
+| `specs/<slug>.thoughts.md` | `.workspace/LOG.md` |
+| `specs/<slug>.sessions/` | `.workspace/history/<utc>-handoff-<slug>.md` |
+| `.context/<slug>.md` | `.workspace/LOG.md` |
+| `specs/<slug>.scoping.md` | never created |
+
+## Which spec a worktree is on — one field, no ceremony
+`.workspace/MISSION.md`'s `spec:` field records a repo-relative path, written like any other
+line in the file. `write-plan` sets it as it writes the spec. In a T3, the build worktrees are
+cut *after* `write-plan` ran in the planning worktree, so **each build worktree's `spec:` is set
+by the developer or the first session** — it is the one write with no automated owner.
+
+"Bind" is not vocabulary here. There is no bind command, no `make work`, no `.claude/active-spec`,
+no source-commit pin, and no drift detection. Repointing is editing the field.
+
+## Cross-worktree sharing — merge the spec first
+Worktrees branch from `origin/main`, so a spec must be **merged**, not merely committed, before
+parallel build worktrees are cut. For a T3 that makes the sequence:
+
+```text
+1  cut a planning worktree            plan/<slug>, off origin/main
+2  brainstorm → grill                 → .workspace/LOG.md
+3  write-plan                         → specs/<epic>/README.md + 01-*.md
+4  spec-only PR → merge to main
+5  cut N build worktrees              each fresh from origin/main
+6  set each MISSION's spec: field
+7  build in parallel
+```
+
+T0–T2 need none of this: cut a worktree, build, ship.
 
 ## Layout
-The top level holds this README and your real specs. Everything illustrative lives in
-`templates/`, **one folder per tier** (all on a single webhook theme so they read together) —
-copy a tier's contents out & adapt:
-
-```
+```text
 specs/
   README.md                          this file — the convention
   templates/                         worked examples, one folder per tier
-    t1/
-      spec.md                        T1 — the FLOOR: goal + acceptance + one pointer, nothing more
-    t2/
-      spec.md                        T2 — the full spec shape (filled; field labels = the guidance)
+    t1/spec.md                       T1 — goal + acceptance + one pointer, nothing more
+    t2/spec.md                       T2 — the full spec shape (field labels = the guidance)
     t3/                              T3 — a DECOMPOSED epic (the folder IS the spec)
       README.md                      the epic index: shared context + ordered task list
       01-queue-table.md              sub-spec (one build run); 02, 03 follow with deps
       02-worker.md
       03-retry-dlq.md
-  <slug>.md                          ← your real spec (copied from templates/t1/ or t2/)
-  <epic>/                            ← a T3 epic (copied from templates/t3/)
-  .context/<slug>.md                 ← scratch notepad — GITIGNORED, auto-created by the hook
+  <slug>.md                          ← your real spec (from templates/t1/ or t2/)
+  <epic>/                            ← a T3 epic (from templates/t3/)
 ```
 
-A single (T0–T2) spec is **flat sibling files** named for the work (`rate-limit-webhooks.md` +
-its optional committed `.thoughts.md` / `.sessions/`, plus the gitignored `.context/<slug>.md`
-scratch notepad). `templates/` is just the box that keeps the examples
-out of the top level — in real use a single spec's files are siblings, not under a folder; only a
-T3 epic is itself a folder.
-
-## The companion artifacts (each stated once, here)
-The first three are **committed** (curated, travel with the branch); the fourth is **uncommitted**
-scratch (gitignored, dies with the worktree).
-- **`<slug>.md`** — the spec. The conclusion: what to build, fields pre-answering a builder's
-  question. Read by the build run.
-- **`<slug>.thoughts.md`** — *optional* planning thread. HOW you got there: decisions, ideas,
-  rejected alternatives, as typed dated entries (**IDEA · DECISION · RESEARCH · QUESTION ·
-  CONSTRAINT · INSIGHT**). Two phase sections (Brainstorm / Grilling) but **one chronological
-  number line**, so a grilling `DECISION` can close a brainstorm `QUESTION` by id. Durable
-  reference — *why did we pick X, what did we reject?* — NOT read by the build. Skip it for
-  trivial work. (We deliberately did NOT split the spec into requirements/design/tasks files —
-  one doc + this thread is the right weight.)
-- **`<slug>.sessions/NNN_*.md`** — *optional* mid-execution session handoffs, written by the
-  `handoff` skill (its format lives in that skill). Carries session-to-session state WITHIN
-  one spec — distinct from the plan→build handoff the spec itself is.
-- **`.context/<slug>.md`** — *uncommitted* scratch notepad (gitignored), the **scratch inbox** for
-  this worktree. Free-form, no schema: in-flight thinking across plan→build→test — dead-ends, raw
-  test output, "still need to check X", half-formed observations. The `SessionStart` hook ensures
-  it exists and re-surfaces its path on every start/resume/compact, so working memory survives
-  compaction. **Rule: it is never a source of truth.** It captures fast and loose; anything that
-  proves durable graduates into the right committed home — a decision/rationale into
-  `<slug>.thoughts.md`, a build-resume state into `<slug>.sessions/`, a change to *what to build*
-  into `<slug>.md` — and the notepad is discarded at merge. Distinct from `.thoughts.md` (which is
-  committed, curated, and plan-phase) on the commit axis: this is the raw buffer those curated
-  artifacts are drained *from*.
+`templates/` only keeps the examples out of the top level. A real T0–T2 spec is a single flat
+file; only a T3 epic is a folder.
 
 ## Lifecycle — status frontmatter, not folders
-Each spec carries `status:` in frontmatter; it moves `draft → ready → building → done`:
-- **draft** — still being written / grilled.
-- **ready** — passed the Definition of Ready (NO open decisions): safe to hand to a build run.
-- **building** — a run is executing it.
-- **done** — shipped + verified.
+Each spec carries `status:` in frontmatter, moving `draft → ready → building → done`:
 
-(Status in frontmatter, not `active/`+`done/` folders, so a spec's history stays in one file
-and `git log` is the audit trail. Switch to folders only if you outgrow this.)
+- **draft** — still being written or grilled.
+- **ready** — passed the Definition of Ready: **no open decisions remain**. Safe to hand to a
+  build run. Never flip to `ready` over a guess.
+- **building** — a run is executing it.
+- **done** — shipped and verified.
+
+Status lives in frontmatter rather than `active/`+`done/` folders so a spec's history stays in
+one file and `git log` is the audit trail.
 
 ## The bar — when is a spec `ready`?
-Only when it passes the **Definition of Ready**, the checklist owned by the `write-plan`
-skill. The load-bearing box is **no open decisions** — the survives-your-absence test.
+Only when it passes the **Definition of Ready**, the checklist owned by the `write-plan` skill.
+The load-bearing box is **no open decisions** — the survives-your-absence test.
 
-## Right-sizing
-- **T0/T1** — a few lines (goal + acceptance + one pointer); a single `<slug>.md`
-  (worked: `templates/t1/`).
-- **T2** — the full spec shape, one file (worked: `templates/t2/`).
-- **T3** — an `<epic>/` subdir, decomposed into ordered per-task specs behind an index README;
-  uniquely, it then executes as **multiple build runs — one per sub-spec**, dispatched in
-  dependency order (T0–T2 are a single run). Decomposition stays a single plan pass
-  (the `write-plan` skill resolves it before hand-off); dispatching the ordered sub-specs is
-  the orchestrator's job, not the harness's. (worked: `templates/t3/`)
-(Risk hotspots, the gate, and verify-before-done never scale down — the `CLAUDE.md` floor.)
+## What a spec is not
+The **conclusion, not the journey**. Repo context is *linked* from `docs/`, never pasted in. The
+planning path stays in `.workspace/LOG.md` and is not read by the build.

@@ -1,8 +1,8 @@
 > ## ⚠ SUPERSEDED — DO NOT EXECUTE
 >
 > This was the target model before the two decision passes. It is superseded by
-> [`specs/harness-standardization/CONTRACT.md`](../specs/harness-standardization/CONTRACT.md), with
-> [`DECISIONS-PENDING.md`](../specs/harness-standardization/DECISIONS-PENDING.md) above it.
+> [`specs/harness-standardization/CONTRACT.md`](./CONTRACT.md), with
+> [`DECISIONS-PENDING.md`](./DECISIONS-PENDING.md) above it.
 >
 > **Specifically reversed here:** Depot owning worktree and workspace lifecycle
 > (`depot worktree create` / `workspace init` / `orient` / `bind` — none exist and none will);

@@ -3,7 +3,7 @@
 > Adds an unsequenced lint hook and depends on task 01's removed-gate model. Codex hook parity is now task T0.11, which harvests melting's `origin/main` fix.
 >
 > **Authority:** `DECISIONS-PENDING.md` → `CONTRACT.md` →
-> `docs/HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md` → `plan/tasks.md`.
+> `HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md` → `plan/tasks.md`.
 > Retained as provenance and research. Harvest evidence from it; do not run its instructions.
 >
 > *Bannered 2026-08-08.*

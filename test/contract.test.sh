@@ -66,12 +66,100 @@ make -n setup >/dev/null 2>&1 && ok "make setup still resolves after the removal
 
 echo "FLOOR's content reached its assigned homes (DECISION I)"
 grep -q '## Definition of done' core/skills/verify-before-done/SKILL.md \
-  && ok "Definition of done lives in verify-before-done" || no "Definition of done has no home"
-grep -qi 'never claim done on unrun code' CLAUDE.md \
-  && ok "the profile still carries 'never claim done on unrun code'" || no "that rule was lost"
-grep -qi 'task branch' CLAUDE.md && ok "the profile still carries the task-branch rule" || no "task-branch rule lost"
-grep -qi 'Risk hotspots' CLAUDE.md && ok "the profile still carries risk hotspots" || no "risk hotspots lost"
-grep -qi 'STARTER_CHARACTER' CLAUDE.md && ok "the profile still carries the skill-marker rule" || no "skill-marker rule lost"
+  && ok "Definition of done → verify-before-done" || no "Definition of done has no home"
+grep -qi 'never claim done on unrun code' AGENTS.md \
+  && ok "the profile carries 'never claim done on unrun code'" || no "that rule was lost"
+grep -qi 'task branch' AGENTS.md && ok "the profile carries the task-branch rule" || no "task-branch rule lost"
+grep -qi 'hotspots' AGENTS.md && ok "the profile carries risk hotspots" || no "risk hotspots lost"
+grep -qi 'One run builds one task' adopt/specs/README.md \
+  && ok "two-modes / one-run-one-task → specs/README.md" || no "the build-mode rules have no home"
+grep -qiE '^\| \*\*T0\*\*' adopt/specs/README.md \
+  && ok "the T0–T3 tier table → specs/README.md" || no "the tier definitions have no home"
+miss=0; for s in core/skills/*/SKILL.md; do grep -q 'STARTER_CHARACTER' "$s" || { miss=1; echo "      $s"; }; done
+[ "$miss" = 0 ] && ok "every core skill declares its own STARTER_CHARACTER" || no "a core skill has no marker"
+
+echo "T0.14 — one documentation namespace, one profile (DECISION L)"
+[ -f AGENTS.md ] && ok "the harness has its own AGENTS.md" || no "AGENTS.md is missing"
+grep -q '^@AGENTS.md$' CLAUDE.md && ok "CLAUDE.md imports AGENTS.md" || no "CLAUDE.md does not import AGENTS.md"
+[ "$(wc -l <CLAUDE.md)" -lt 15 ] && ok "CLAUDE.md is a stub, not a second profile" \
+  || no "CLAUDE.md has grown into a second profile ($(wc -l <CLAUDE.md) lines)"
+[ -d agent_docs ] && no "agent_docs/ still exists" || ok "agent_docs/ is retired"
+for f in docs/INDEX.md adopt/docs/INDEX.md adopt/docs/architecture.md adopt/docs/glossary.md \
+         adopt/docs/adrs/README.md adopt/docs/adrs/0000-template.md; do
+  [ -f "$f" ] && ok "$f exists" || no "$f is missing"
+done
+ls docs/*.md 2>/dev/null | grep -qE 'HIGH-LEVEL-CONTEXT|DESIGN-REVIEW|RESEARCH-20|REVIEW-20' \
+  && no "a planning/research artifact is still in docs/" || ok "docs/ holds no planning artifacts"
+grep -q 'adopt/docs/INDEX.md:docs/INDEX.md' core/skills/adopt-harness/copy.sh \
+  && ok "the docs scaffold travels (write-only-when-absent)" || no "the docs scaffold does not travel"
+grep -q '"adopt/docs:docs"' core/skills/adopt-harness/copy.sh \
+  && no "adopt/docs is copied unconditionally — it would clobber a repo's filled-in docs" \
+  || ok "adopt/docs is not in the unconditional manifest"
+
+echo "every superseded document says so in its first ten lines"
+for f in specs/harness-standardization/README.md specs/harness-standardization/0*.md \
+         specs/harness-standardization/PRE-IMPLEMENTATION-CONTRACT-AUDIT.md \
+         specs/harness-standardization/HIGH-LEVEL-CONTEXT.md; do
+  head -10 "$f" | grep -qiE 'SUPERSEDED' || { no "no supersession banner: $f"; continue; }
+done
+ok "all superseded epic documents carry a banner in their first ten lines"
+head -10 specs/harness-standardization/HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md \
+  | grep -qi 'No longer authoritative' && ok "the design review is marked provenance-only" \
+  || no "the design review does not declare its status"
+
+echo "the authority order is stated identically everywhere it appears"
+python3 - <<'PY' && ok "every authority statement lists DECISIONS-PENDING → CONTRACT → design review → tasks" \
+  || no "an authority statement disagrees with the others"
+import pathlib,re
+# Unambiguous tokens only: a bare "CONTRACT" also matches PRE-IMPLEMENTATION-CONTRACT-AUDIT.
+order=["DECISIONS-PENDING","HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW","tasks.md"]
+seen_any=False
+for p in pathlib.Path("specs/harness-standardization").rglob("*.md"):
+    if "snapshot" in p.parts: continue
+    for m in re.finditer(r'\*\*Authority:?\*\*(.{0,400})', p.read_text(), re.S):
+        body=m.group(1)
+        pos=[body.index(n) for n in order if n in body]
+        assert pos==sorted(pos), f"{p}: authority names out of order"
+        if len(pos)>=2: seen_any=True
+assert seen_any, "no authority statement found to check"
+PY
+
+echo "no dangling markdown links"
+python3 - <<'PY' && ok "every relative markdown link resolves" || no "a markdown link is dangling"
+import pathlib,re
+skip={"./src/ordering/CONTEXT.md","./src/billing/CONTEXT.md","./src/fulfillment/CONTEXT.md","link"}
+bad=[]
+for p in pathlib.Path(".").rglob("*.md"):
+    if ".git" in p.parts or "snapshot" in p.parts: continue
+    for m in re.finditer(r'\]\(([^)#][^)]*)\)', p.read_text()):
+        t=m.group(1).split("#")[0]
+        if not t or t.startswith(("http","mailto:")) or t in skip: continue
+        if not (p.parent/t).exists(): bad.append(f"{p} -> {t}")
+assert not bad, bad
+PY
+
+echo "retired conventions survive only in historical documents"
+python3 - <<'PY' && ok "no live surface references a retired convention" || no "a retired convention is still live"
+import pathlib,re
+HIST=re.compile(r'specs/harness-standardization/(0[1-8]|README|PRE-IMPL|CONTRACT|DECISIONS|WAVE-0|plan/|snapshot/|HIGH-LEVEL|HARNESS-DEPOT|research/)')
+RETIRED=re.compile(r'\.claude/active-spec|make work SPEC|thoughts\.md|\.sessions/|\.context/<|agent_docs')
+# Allowed: files whose whole job is to DESCRIBE a retirement — assert it is gone, refuse to copy
+# it, or tabulate what replaced it. A new *instruction* to use a retired surface still fails.
+ALLOW=("test/","packs/","adopt/Makefile",
+       "adopt/hooks/spec-session-orient.sh",          # header notes what the old version did
+       "adopt/specs/README.md",                       # the "Retired outright" table
+       "core/skills/adopt-harness/SKILL.md")          # "confirm no retired companion travelled"
+bad=[]
+for p in pathlib.Path(".").rglob("*"):
+    if not p.is_file() or ".git" in p.parts: continue
+    if HIST.search(str(p)) or any(str(p).startswith(a) for a in ALLOW): continue
+    if p.suffix not in (".md",".sh",".json",".mk",".toml") and p.name!="Makefile": continue
+    try: t=p.read_text()
+    except Exception: continue
+    for n,line in enumerate(t.splitlines(),1):
+        if RETIRED.search(line): bad.append(f"{p}:{n}: {line.strip()[:90]}")
+assert not bad, "\n".join(bad)
+PY
 
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

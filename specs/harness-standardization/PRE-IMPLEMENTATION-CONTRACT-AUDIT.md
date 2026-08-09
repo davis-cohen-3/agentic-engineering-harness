@@ -27,7 +27,7 @@
 **Implementation posture:** Do not begin harness, machine, Depot, worktree, workspace, or project migration work until the blocking decisions in this audit are resolved and the controlling documents are reconciled.
 
 This report audits [CONTRACT.md](./CONTRACT.md) and the DEC-1 through DEC-15 evidence in
-[HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md](../../docs/HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md)
+[HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md](./HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md)
 against the current machine and repository state.
 
 It is a design review, not an implementation plan. The core operating model is coherent, but the

@@ -13,10 +13,10 @@ because it spans a migration, a new worker, and a limiter rewrite — too much f
 the pieces must land in order.
 
 ## Shared context (linked ONCE here; sub-specs point back, never restate)
-- `agent_docs/architecture.md#webhooks` — current sender shape
+- `docs/architecture.md#webhooks` — current sender shape
 - `src/webhooks/sender.py` — `WebhookSender.send()`, today's synchronous dispatch
 - `src/webhooks/events.py` — the event-emission pattern to mirror
-- ADR `agent_docs/adr/0007-durable-webhooks.md` — why a DB-backed queue over a broker
+- ADR `docs/adrs/0007-durable-webhooks.md` — why a DB-backed queue over a broker
 
 ## Tasks (ordered; each is ONE build run)
 | #  | Sub-spec                          | Deps | Hotspots      | Status |

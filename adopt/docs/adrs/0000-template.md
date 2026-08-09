@@ -1,4 +1,4 @@
-<!-- Copy to agent_docs/adr/NNNN-slug.md (next number; ls this dir). Delete this comment. -->
+<!-- Copy to docs/adrs/NNNN-slug.md (next number; ls this dir). Delete this comment. -->
 ---
 number: NNNN
 title: <short imperative — the decision, e.g. "Store money as integer cents">
