@@ -151,7 +151,10 @@ echo "registry migration — the transform refuses a shape it cannot safely edit
 # It used to append the new project at EOF, which only landed inside projects: because projects:
 # happened to be the last top-level key. And current_repo was never reset, so a project missing
 # repo: would inherit the previous one's and rewrite the WRONG entry.
-printf 'projects:\n  smoke-screen:\n    repo: ~/smoke/code/smoke-screen\n    worktree_root: ~/old\nprofiles:\n  claude:\n    launch: c\n' >"$SB/notlast.yaml"
+# A repo path deliberately OUTSIDE WORKTREE_ROOTS: this case tests where the depot block lands,
+# not the rewrite. A mapped path here would look like a partial match and trip the moved-registry
+# guard, testing that instead.
+printf 'projects:\n  fixture:\n    repo: /tmp/fixture-repo\n    worktree_root: /tmp/old\nprofiles:\n  claude:\n    launch: c\n' >"$SB/notlast.yaml"
 "$REPO/install/migrate-registry.py" "$SB/notlast.yaml" "$SB/notlast.out" >/dev/null 2>&1
 python3 - "$SB/notlast.out" <<'PY' && ok "depot lands INSIDE projects: even when projects: is not last" || no "depot landed under the wrong key"
 import yaml,sys
@@ -163,6 +166,27 @@ printf 'projects:\n  a:\n    worktree_root: ~/x\n' >"$SB/norepo.yaml"
 "$REPO/install/migrate-registry.py" "$SB/norepo.yaml" "$SB/norepo.out" >"$SB/o" 2>&1
 is "refuses a worktree_root with no preceding repo:" "$?" 1
 [ -e "$SB/norepo.out" ] && no "wrote output despite refusing" || ok "and writes nothing when it refuses"
+echo "registry migration — no project is silently left behind"
+# A project with no WORKTREE_ROOTS entry keeps its old root. Absent from the output, that is
+# indistinguishable from "correct" in the diff Wave 1 reads before activating the registry.
+"$REPO/install/migrate-registry.py" "$SB/notlast.yaml" "$SB/disp.out" >"$SB/o" 2>&1
+grep -q 'NO MAPPING' "$SB/o" && ok "an unmapped project's disposition is reported" \
+  || no "an unmapped project was left silent: $(cat "$SB/o")"
+# Partial match = the registry moved out from under the map; migrating anyway strands a project.
+cat >"$SB/moved.yaml" <<YAML
+projects:
+  a:
+    repo: ~/smoke/code/smoke-screen
+    worktree_root: ~/workspaces/smoke-screen
+  b:
+    repo: ~/melting/code/RENAMED
+    worktree_root: ~/workspaces/melting-v1
+YAML
+"$REPO/install/migrate-registry.py" "$SB/moved.yaml" "$SB/moved.out" >"$SB/o" 2>&1
+is "refuses when only SOME mapped repos are present" "$?" 1
+grep -q 'the registry moved' "$SB/o" && ok "says the registry moved" || no "wrong reason"
+[ -e "$SB/moved.out" ] && no "wrote output despite refusing" || ok "and wrote nothing"
+
 printf 'profiles:\n  claude:\n    launch: c\n' >"$SB/noproj.yaml"
 "$REPO/install/migrate-registry.py" "$SB/noproj.yaml" "$SB/noproj.out" >"$SB/o" 2>&1
 is "refuses a registry with no projects: key" "$?" 1

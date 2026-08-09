@@ -67,6 +67,7 @@ def migrate(text):
     out, changes, current_repo = [], [], None
     body = [l for l in lines[projects_at + 1:end] if l.strip()]
     key_indent = min((_indent(l) for l in body), default=2)
+    seen_repos, dispositions = set(), []
 
     for i, line in enumerate(lines):
         stripped = line.strip()
@@ -77,18 +78,40 @@ def migrate(text):
             current_repo = None
         if in_projects and stripped.startswith("repo:"):
             current_repo = stripped.split("repo:", 1)[1].strip()
+            seen_repos.add(current_repo)
         if in_projects and stripped.startswith("worktree_root:"):
             if current_repo is None:
                 raise ShapeError(
                     f"line {i + 1}: 'worktree_root:' with no preceding 'repo:' in its project — "
                     "cannot tell which project it belongs to")
-            if current_repo in WORKTREE_ROOTS:
-                old = stripped.split("worktree_root:", 1)[1].strip()
+            old = stripped.split("worktree_root:", 1)[1].strip()
+            # EVERY project's disposition is reported, not just the ones that moved. A project
+            # with no mapping is silently left on the old root otherwise, and "absent from the
+            # output" is indistinguishable from "correct".
+            if current_repo not in WORKTREE_ROOTS:
+                dispositions.append(f"{current_repo}: NO MAPPING — left on {old}")
+            elif old == WORKTREE_ROOTS[current_repo]:
+                dispositions.append(f"{current_repo}: already correct ({old})")
+            else:
                 new = WORKTREE_ROOTS[current_repo]
-                if old != new:
-                    line = f"{line[:_indent(line)]}worktree_root: {new}\n"
-                    changes.append(f"{current_repo}: {old} -> {new}")
+                line = f"{line[:_indent(line)]}worktree_root: {new}\n"
+                changes.append(f"{current_repo}: {old} -> {new}")
         out.append(line)
+
+    # PARTIAL match is the dangerous signal: some mapped repos present and others not means the
+    # registry moved out from under this map, and migrating anyway leaves a project pointing at a
+    # root nobody maintains. ZERO matches just means this is not that registry (a test fixture,
+    # another machine) — report it and carry on rather than refusing a file we make no claims about.
+    found = [r for r in WORKTREE_ROOTS if r in seen_repos]
+    missing = [r for r in WORKTREE_ROOTS if r not in seen_repos]
+    if found and missing:
+        raise ShapeError(
+            "mapped repo(s) not found in the source registry: " + ", ".join(missing)
+            + "\n  others in the map WERE found, so the registry moved;"
+            + " update WORKTREE_ROOTS before running")
+    if not found:
+        dispositions.append("no mapped project found — this is not the registry WORKTREE_ROOTS "
+                            "describes; nothing was rewritten")
 
     if "\n  depot:" not in "".join(out):
         block = DEPOT_BLOCK.strip("\n") + "\n"
@@ -96,7 +119,7 @@ def migrate(text):
             end -= 1                      # insert before trailing blanks, not after them
         out[end:end] = [block]
         changes.append("added project: depot (~/dev/depot)")
-    return "".join(out), changes
+    return "".join(out), changes, dispositions
 
 
 def main(argv):
@@ -117,7 +140,7 @@ def main(argv):
     with open(source) as f:
         original = f.read()
     try:
-        migrated, changes = migrate(original)
+        migrated, changes, dispositions = migrate(original)
     except ShapeError as e:
         print(f"migrate-registry: {e}", file=sys.stderr)
         print("  nothing was written; migrate this file by hand.", file=sys.stderr)
@@ -125,6 +148,8 @@ def main(argv):
 
     for c in changes:
         print(f"  {c}")
+    for d in dispositions:
+        print(f"  {d}")
     if not changes:
         print("  no changes needed")
 
