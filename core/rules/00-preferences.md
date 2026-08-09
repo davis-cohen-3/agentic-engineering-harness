@@ -1,7 +1,7 @@
 # Personal preferences (Davis)
 
 Cross-repo defaults for loose work. Suppressed inside any project that owns its own `.claude/` —
-there, the project's CLAUDE.md/FLOOR governs instead.
+there, the project's own `AGENTS.md` / `CLAUDE.md` governs instead.
 
 ## Working style
 - Be concise and direct. Lead with the answer; keep preamble and recap minimal.

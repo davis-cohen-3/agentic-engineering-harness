@@ -2,9 +2,10 @@
 
 > **Design narrative, not agent-loaded context.** This explains *why* the plan/build split
 > exists; it does NOT carry the operational steps. Those live in the skills that travel into
-> every repo (`brainstorm` / `grill-me` / `write-plan` + the DoR they enforce), in
+> every repo (`brainstorm` / `grill` / `write-plan` + the DoR they enforce), in
 > `specs/README.md` (lifecycle + right-sizing) and `specs/templates/t2/spec.md` (the fields), and in
-> `.claude/FLOOR.md` (the never-scale-down floor). An agent never needs to read this to plan.
+> the project's own `AGENTS.md` (the never-scale-down rules). An agent never needs to read this
+> to plan.
 
 ## What planning is — aligning the human and the agent
 Planning is the **alignment step between the human engineer and the coding agent**: it turns

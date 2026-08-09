@@ -1,11 +1,25 @@
 # agentic-coding-harness — repo profile
 
-> Two parts: the **PROFILE** below (this repo's stack, structure, commands, conventions, tuned
-> hotspots) and the **FLOOR** — the repo-agnostic must-always-fire rules, imported just below
-> from `.claude/FLOOR.md`, inherited byte-identical and never edited per repo. Onboarding a new
-> repo regenerates this PROFILE and ships the FLOOR untouched.
+> This repo's always-on context: what it is, how it is laid out, how to check it, and the rules
+> that must fire on every task here. There is no inherited floor file — `.claude/FLOOR.md` was
+> removed and its content redistributed to the owners named below.
 
-@.claude/FLOOR.md
+## Always-on rules
+- **Done** means the gate is green AND you ran the change AND you reviewed your diff against the
+  plan. The full definition, and why a green gate alone is not enough, is owned by the
+  `verify-before-done` skill. **Never claim done on unrun code.**
+- **Work on a task branch**, never the default branch (a hook enforces this). Ship via PR
+  (`/ship` → `open-a-pr`). Commit/push only when asked.
+- **Match the surrounding code's idiom. Prefer minimal-to-no comments** — the non-obvious *why*,
+  never the *what*.
+- **Design in plan mode, execute in build mode.** A build run does not redesign. Task tiers
+  `T0`–`T3` size the response; `specs/README.md` owns the definitions. **One run builds one task.**
+- **Spec not `ready`, or an unresolved design question? HARD-STOP and flag it** — do not invent
+  the design; hand back "blocked: design gap at <X>".
+- `make check`, risk-review on a hotspot, and `verify-before-done` **never scale down.**
+- Secrets are never committed; `.mcp.json` holds `${VAR}` references, never values.
+- While a skill is active, open each reply with its `STARTER_CHARACTER`. No skill → no marker.
+- **No reviewer runs automatically** — `reviewer` and `reviewer-security` run only when asked.
 
 ## What this is
 A **portable Claude Code harness base** — skills, agents, hooks, path-scoped rules, a `make`
@@ -32,7 +46,6 @@ payloads instead of one traveling `.claude/` tree. `CONTRACT.md` §5 is the auth
 - `.claude/` — this repo's *own* project layer only: `commands/ship.md`, `skills/open-a-pr/`,
   path-scoped `rules/` (`migrations.md`, `specs.md`; authoring guide in
   `docs/CLAUDE-CODE-RULES.md`), and `settings.json` binding the hooks out of `core/hooks/`.
-- `.claude/FLOOR.md` — the inherited floor (imported above). Removed by T0.13.
 - `Makefile` (root, one line: `include adopt/Makefile`) + `make/gate.mk` — this repo's gate.
 - `docs/` — the harness author's space (does NOT travel): design narrative
   (`OVERLAY-CONTRACT.md`, `PLAN-MODE.md`, `SOURCES.md`) + curation catalogs (`recommended/`) +
@@ -51,7 +64,8 @@ payloads instead of one traveling `.claude/` tree. `CONTRACT.md` §5 is the auth
 - **Single-source / no duplication** — every fact has ONE home; everything else *links* to it
   (this PROFILE references owners, never restates them). This is the repo's central discipline.
 - **Extract, don't copy** — shared content moves to one place and is imported/linked, never
-  pasted (the FLOOR `@import` is the worked example).
+  pasted (`CLAUDE.md` importing `AGENTS.md` rather than restating the profile is the worked
+  example).
 - **Anti-bloat** — the default answer to "add a skill/rule/doc?" is **NO**. Always-on text must
   earn its token tax broadly; keep within the skill budget. Justify additions against
   `docs/recommended/` (which owns the concrete cap + current count).
@@ -61,8 +75,9 @@ payloads instead of one traveling `.claude/` tree. `CONTRACT.md` §5 is the auth
   always-on, repo-wide few; a convention tied to a file-type or area belongs in a rule file
   (usually `paths:`-scoped), per the `.claude/rules/` entry above.
 
-## Tuned hotspots (this repo)
-Beyond the base set in the FLOOR, the risk surface *here* is the harness machinery itself:
+## Risk hotspots — slow down, engage `reviewer-security`, never skip review
+The convergent base set: **migrations · auth · payments · outbound-send (email/LLM/webhooks) ·
+prod deploy · spend.** Beyond it, the risk surface *here* is the harness machinery itself:
 - **`core/hooks/`** — a broken guardrail's blast radius is every future run in every repo
   that inherits it. Treat any hook change as a hotspot; engage `reviewer-security`.
 - **`make/gate.mk` + `adopt/Makefile`** — these *define* "done"; a wrong gate silently passes

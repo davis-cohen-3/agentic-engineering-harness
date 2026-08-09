@@ -53,6 +53,15 @@ These phrases mean STOP — you're about to claim without evidence:
 - "agent said success" / trusting a subagent's report → verify independently
 - "partial check is enough" → partial proves nothing
 
+## Definition of done
+A change is done ONLY when ALL of:
+  1. `make check` passes — the gate; the code is valid.
+  2. You RAN the change and watched the intended behavior work — compiling is not working.
+  3. You reviewed your own diff against the approved plan.
+
+The Stop-gate hook enforces only step 1. A green gate proves the code is *valid*, **not** that
+you ran it, so it is never on its own sufficient evidence of "done". Steps 2–3 are on you.
+
 ## In this harness — what "verify" concretely means here
 1. **Gate:** run `make check`. If it fails, you're not at verify yet — fix it.
 2. **Run it for real:** launch the app / service and run the affected path — however this

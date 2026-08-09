@@ -52,5 +52,26 @@ grep -qi 'LOG.md' .claude/skills/open-a-pr/SKILL.md \
 grep -qi 'owned by' .claude/commands/ship.md && ! grep -qi 'Carry the settled decisions' .claude/commands/ship.md \
   && ok "ship delegates the carry instead of duplicating it" || no "ship still restates the PR procedure"
 
+echo "T0.13 — the retired surfaces are gone, and nothing dangles"
+[ -e .claude/FLOOR.md ] && no ".claude/FLOOR.md still exists" || ok ".claude/FLOOR.md is removed"
+absent '@\.claude/FLOOR\.md' "CLAUDE.md adopt core .claude" "no @.claude/FLOOR.md import survives"
+grep -qE '^work:' adopt/Makefile && no "the Makefile work target survives" || ok "the Makefile work target is gone"
+grep -qE '^install-global:' adopt/Makefile && no "install-global survives" || ok "install-global is retired"
+grep -q 'active-spec' .gitignore && no ".gitignore still ignores active-spec" || ok "the active-spec ignore entry is gone"
+grep -q '\.workspace' .gitignore && no ".workspace/ is in a repo .gitignore (it must be global-only)" \
+  || ok ".workspace/ is not in the repo .gitignore — exclusion is global (CONTRACT §2)"
+make -n work >/dev/null 2>&1 && no "make work still resolves" || ok "make work no longer resolves"
+make -n check >/dev/null 2>&1 && ok "make check still resolves after the removals" || no "make check broke"
+make -n setup >/dev/null 2>&1 && ok "make setup still resolves after the removals" || no "make setup broke"
+
+echo "FLOOR's content reached its assigned homes (DECISION I)"
+grep -q '## Definition of done' core/skills/verify-before-done/SKILL.md \
+  && ok "Definition of done lives in verify-before-done" || no "Definition of done has no home"
+grep -qi 'never claim done on unrun code' CLAUDE.md \
+  && ok "the profile still carries 'never claim done on unrun code'" || no "that rule was lost"
+grep -qi 'task branch' CLAUDE.md && ok "the profile still carries the task-branch rule" || no "task-branch rule lost"
+grep -qi 'Risk hotspots' CLAUDE.md && ok "the profile still carries risk hotspots" || no "risk hotspots lost"
+grep -qi 'STARTER_CHARACTER' CLAUDE.md && ok "the profile still carries the skill-marker rule" || no "skill-marker rule lost"
+
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

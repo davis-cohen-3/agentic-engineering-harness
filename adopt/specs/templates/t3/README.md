@@ -40,6 +40,6 @@ mergeable and verifiable on its own.
 - The per-host cap semantics from the T2 work are preserved — 03 changes only *where the state
   lives* (shared store), not the policy.
 
-## Binding a build run to a sub-spec
-Each run sets its pointer to the specific sub-spec, not this index:
-`echo specs/<epic>/01-queue-table.md > .claude/active-spec` (see ../../README.md).
+## Pointing a build run at a sub-spec
+Each run records the specific sub-spec, not this index, in its own worktree's
+`.workspace/MISSION.md` — `spec: specs/<epic>/01-queue-table.md` (see ../../README.md).

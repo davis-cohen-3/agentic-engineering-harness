@@ -2,7 +2,7 @@
 # SessionStart hook (GLOBAL ~/.claude): inject the global rules ONLY when this session is NOT
 # inside a project that owns its own .claude/ or CLAUDE.md. Walking up from cwd, the first
 # ancestor (other than $HOME) carrying a project marker means "a project governs this session"
-# → stay silent, so the project's own CLAUDE.md/FLOOR/rules win and the global rules cost zero
+# → stay silent, so the project's own AGENTS.md/CLAUDE.md/rules win and the global rules cost zero
 # tokens here. Outside any such project (scratch dirs, $HOME, un-adopted repos) → inject them.
 # Fails OPEN: any error → no injection, never blocks the session.
 set -euo pipefail
@@ -37,7 +37,7 @@ done
 body="$(printf '%s' "$body" | sed -e '/[^[:space:]]/,$!d')"   # strip leading blank lines
 [ -z "$body" ] && exit 0
 
-ctx="Global preferences & rules (~/.claude/rules/) — active because this session is NOT inside a project with its own .claude/. Inside such a project these are fully suppressed and the project's own CLAUDE.md/FLOOR/rules govern instead.${body}"
+ctx="Global preferences & rules (~/.claude/rules/) — active because this session is NOT inside a project with its own .claude/. Inside such a project these are fully suppressed and the project's own AGENTS.md/CLAUDE.md/rules govern instead.${body}"
 
 if command -v jq >/dev/null 2>&1; then
   jq -cn --arg ctx "$ctx" '{hookSpecificOutput:{hookEventName:"SessionStart",additionalContext:$ctx}}'

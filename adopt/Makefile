@@ -20,7 +20,7 @@ GATE_STEPS ?= gate-unconfigured
 # in a fresh worktree or sandbox clone. The overlay sets SETUP_STEPS; default none.
 SETUP_STEPS ?=
 
-.PHONY: check setup work install-global gate-unconfigured $(GATE_STEPS) $(SETUP_STEPS)
+.PHONY: check setup gate-unconfigured $(GATE_STEPS) $(SETUP_STEPS)
 
 # The one command everything points at. Fails fast on the first red step.
 check: $(GATE_STEPS)
@@ -34,33 +34,6 @@ gate-unconfigured:
 	@echo "⚠  make/gate.mk not found — the quality gate is a NO-OP."
 	@echo "   cp make/gate.example-python.mk make/gate.mk  (or -ts), then set GATE_STEPS."
 
-# Bind THIS worktree to the spec it executes: `make work SPEC=specs/<slug>.md`.
-# Writes the gitignored .claude/active-spec pointer the SessionStart hook reads, so every
-# resumed/post-compaction session re-anchors without re-supplying the path. This is the eager,
-# explicit bind; the hook self-binds from the branch name when this wasn't run.
-work:
-	@spec="$${SPEC}"; \
-	  test -n "$$spec" || { echo "usage: make work SPEC=specs/<slug>.md"; exit 2; }; \
-	  case "$$spec" in specs/*) ;; *) echo "✗ SPEC must be a path under specs/ (got: $$spec)"; exit 2;; esac; \
-	  case "$$spec" in *..*|*[!a-zA-Z0-9/_.-]*) echo "✗ SPEC has '..' or invalid characters: $$spec"; exit 2;; esac; \
-	  test -e "$$spec" || { echo "✗ no such spec: $$spec"; exit 2; }; \
-	  mkdir -p .claude && printf '%s\n' "$$spec" > .claude/active-spec; \
-	  echo "→ bound this worktree to $$spec  (.claude/active-spec)"
-
-# Sync harness→global config (nothing else does, so they drift). ONLY skills/agents/commands: rules
-# and hooks are split-purpose (harness ships project-scoped versions; global has your personal/wired
-# ones), so a blanket push pollutes global. Guarded to the harness so an adopted repo can't push its
-# stale .claude/ over global. Additive; `DELETE=--delete` for a strict mirror.
-CLAUDE_HOME ?= $(if $(CLAUDE_CONFIG_DIR),$(CLAUDE_CONFIG_DIR),$(HOME)/.claude)
-DELETE ?=
-install-global:
-	@test -f CLAUDE.template.md || { echo "✗ install-global runs only from the harness repo (no CLAUDE.template.md here)"; exit 2; }
-	@test -d "$(CLAUDE_HOME)" || { echo "✗ no Claude config dir at $(CLAUDE_HOME) — set CLAUDE_CONFIG_DIR"; exit 2; }
-	@command -v rsync >/dev/null || { echo "✗ rsync not found"; exit 2; }
-	@for d in skills agents commands; do \
-	  if [ -d ".claude/$$d" ]; then \
-	    echo "  → $$d/"; \
-	    rsync -a --itemize-changes $(DELETE) ".claude/$$d/" "$(CLAUDE_HOME)/$$d/"; \
-	  fi; \
-	done
-	@echo "✅ harness .claude/{skills,agents,commands} → $(CLAUDE_HOME)"
+# `work` (spec binding) is deleted — DEC-6: a worktree records its spec in .workspace/MISSION.md's
+# `spec:` field, edited like any other line. `install-global` is deleted too: install.sh publishes
+# core/ to ~/.agents/, and a second, unguarded pusher is exactly the drift it exists to end.
