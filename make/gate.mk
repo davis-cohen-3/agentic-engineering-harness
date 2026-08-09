@@ -4,7 +4,7 @@
 # itself: config is valid JSON and hooks are executable. A real repo DELETES this
 # and copies make/gate.example-python.mk or -ts.mk in its place.
 
-GATE_STEPS = validate-json validate-hooks test-install test-adopt test-workspace
+GATE_STEPS = validate-json validate-hooks test-install test-adopt test-workspace test-hooks
 
 validate-json:
 	@python3 -c "import json,sys; [json.load(open(f)) for f in ('.claude/settings.json','.mcp.json')]; print('→ json valid')"
@@ -32,3 +32,8 @@ test-adopt:
 test-workspace:
 	@./test/workspace.test.sh >/dev/null 2>&1 && echo "→ workspace/wt acceptance passed" \
 	  || { ./test/workspace.test.sh; exit 1; }
+
+# Every hook against BOTH providers' payload shapes, from a disposable adopted repo.
+test-hooks:
+	@./test/hooks.test.sh >/dev/null 2>&1 && echo "→ hook parity acceptance passed" \
+	  || { ./test/hooks.test.sh; exit 1; }
