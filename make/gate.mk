@@ -4,10 +4,20 @@
 # itself: config is valid JSON and hooks are executable. A real repo DELETES this
 # and copies make/gate.example-python.mk or -ts.mk in its place.
 
-GATE_STEPS = validate-json validate-hooks suites-wired test-install test-adopt test-workspace test-hooks test-contract
+GATE_STEPS = validate-json validate-hooks validate-payload suites-wired test-install test-adopt test-workspace test-hooks test-contract
 
 validate-json:
 	@python3 -c "import json,sys; [json.load(open(f)) for f in ('.claude/settings.json','.codex/hooks.json','.mcp.json')]; print('→ json valid')"
+
+# install.sh publishes core/ byte-for-byte; a symlink in the payload has no defined meaning there,
+# so forbid one rather than invent semantics. (Symlinks in the INSTALLED result are fine and
+# expected — ~/.claude/skills → ~/.agents/skills — they just live outside the payload.)
+validate-payload:
+	@n=$$(find core adopt -type l | wc -l | tr -d ' '); \
+	  test "$$n" -eq 0 || { \
+	    echo "✗ $$n symlink(s) in the payload — install.sh publishes bytes, not links:"; \
+	    find core adopt -type l | sed 's/^/    /'; exit 1; }; \
+	  echo "→ payload has no symlinks"
 
 # GATE_STEPS is hand-maintained, so a new suite is silently never run until someone adds it here.
 suites-wired:

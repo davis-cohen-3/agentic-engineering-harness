@@ -49,7 +49,12 @@ step() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 die()  { printf 'install.sh: %s\n' "$*" >&2; exit 1; }
 
 sha() { shasum -a 256 "$1" | cut -d' ' -f1; }
-rels() { (cd "$1" && find . -type f ! -name "$MANIFEST_REL" | sed 's|^\./||' | LC_ALL=C sort); }
+# Symlinks are walked too. Without -type l a link in ~/.agents/ is invisible to the whole
+# add/update/same/edited/extra accounting: it is never listed under "keep" and the swap silently
+# discards it, so the "nothing is dropped without --prune" promise would not cover it.
+# core/ and adopt/ are asserted symlink-free by the gate, so this only ever fires on the
+# destination side and publishing a symlink never needs a defined meaning.
+rels() { (cd "$1" && find . \( -type f -o -type l \) ! -name "$MANIFEST_REL" | sed 's|^\./||' | LC_ALL=C sort); }
 
 [ -d "$SRC" ] || die "no core/ payload at $SRC"
 command -v shasum >/dev/null || die "shasum not found"
@@ -97,7 +102,11 @@ say "    cannot be read here. Wave 1 T1.7 confirms them; both degrade safely if 
 
 # ── Plan: classify every file.
 step "Plan"
-tmpd="$(mktemp -d)"; trap 'rm -rf "$tmpd"' EXIT
+# Stage inside $HOME, not $TMPDIR: the install below finishes with `mv staging $DEST`, and a
+# rename is only atomic within one filesystem. $TMPDIR is a separate mount often enough (tmpfs
+# /tmp, containers, a network-mounted $HOME) that relying on them matching is a portability bug.
+rm -rf "$HOME"/.agents.staging.* 2>/dev/null || true   # a hard kill can leave one behind
+tmpd="$(mktemp -d "$HOME/.agents.staging.XXXXXX")"; trap 'rm -rf "$tmpd"' EXIT
 : >"$tmpd/add"; : >"$tmpd/update" ; : >"$tmpd/same"; : >"$tmpd/edited"; : >"$tmpd/extra"
 
 have_manifest=0
@@ -175,7 +184,7 @@ if [ "$PRUNE" -eq 0 ] && [ "$n_extra" -gt 0 ]; then
   while IFS= read -r rel; do
     [ -z "$rel" ] && continue
     mkdir -p "$staging/$(dirname "$rel")"
-    cp -p "$DEST/$rel" "$staging/$rel"
+    cp -Pp "$DEST/$rel" "$staging/$rel"   # -P: preserve the link itself; -p alone copies its target
   done <"$tmpd/extra"
 fi
 
@@ -186,6 +195,12 @@ scan_secrets "$staging" "the staged tree"
 
 touch "$SWAP_FLAG"
 if [ -d "$DEST" ]; then
+  # One backup is the decided design; discarding it silently is not. The recovery path from a bad
+  # install is "restore ~/.agents.prev", and a reflexive second run is what destroys it.
+  if [ -d "$BACKUP" ]; then
+    say "  ⚠ replacing the previous backup at $BACKUP — it is the only copy of the tree"
+    say "    installed before this one. Recover from it FIRST if you meant to."
+  fi
   rm -rf "$BACKUP"
   mv "$DEST" "$BACKUP"
   say "  backup  $BACKUP"

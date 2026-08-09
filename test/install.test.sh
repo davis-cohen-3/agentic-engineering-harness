@@ -74,6 +74,18 @@ is "--prune exits 0" "$(runR --prune)" 0
 [ -f "$SB/.agents/skills/leftover/SKILL.md" ] && no "not pruned" || ok "dropped with --prune"
 [ -f "$SB/.agents.prev/skills/leftover/SKILL.md" ] && ok "pruned file recoverable from the backup" || no "pruned file unrecoverable"
 
+echo "a SYMLINK in the tree gets the same promise as a regular file"
+# It used to get none: -type f made it invisible to the whole plan, so the swap silently ate it
+# and "nothing is dropped without --prune" quietly did not apply.
+ln -s skills/tdd "$SB/.agents/shortcut"
+runR --dry-run >/dev/null; outhas 'keep    1' && ok "a symlink is counted, not invisible" || no "symlink missing from the plan"
+is "exits 0" "$(runR)" 0
+[ -L "$SB/.agents/shortcut" ] && ok "the symlink survives an install" || no "the symlink was silently eaten"
+[ "$(readlink "$SB/.agents/shortcut")" = "skills/tdd" ] && ok "and is still a link, not a copy of its target" \
+  || no "the link was dereferenced into a regular file"
+is "--prune exits 0" "$(runR --prune)" 0
+[ -e "$SB/.agents/shortcut" ] && no "symlink not pruned" || ok "and --prune still drops it on request"
+
 echo "--force overrides, and the backup keeps the lost edit"
 printf '\nlost edit\n' >>"$SB/.agents/skills/handoff/SKILL.md"
 is "refuses without --force" "$(runR)" 1
