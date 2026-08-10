@@ -92,6 +92,7 @@ echo "extras: kept by default, dropped with --prune"
 mkdir -p "$SB/.agents/skills/leftover"; echo x >"$SB/.agents/skills/leftover/SKILL.md"
 is "exits 0" "$(runR)" 0
 [ -f "$SB/.agents/skills/leftover/SKILL.md" ] && ok "kept without --prune" || no "dropped without --prune"
+runR --review </dev/null >/dev/null   # decision N: --prune never runs blind
 is "--prune exits 0" "$(runR --prune)" 0
 [ -f "$SB/.agents/skills/leftover/SKILL.md" ] && no "not pruned" || ok "dropped with --prune"
 [ -f "$SB/.agents.prev/skills/leftover/SKILL.md" ] && ok "pruned file recoverable from the backup" || no "pruned file unrecoverable"
@@ -111,7 +112,7 @@ outhas 'update  1' && ok "classified as update — the manifest lookup matched" 
   || no "manifest lookup failed; the path was refused as a local edit"
 # --prune, not a bare run: without it the now-sourceless file stays as a kept extra and every
 # later "keep" assertion counts it too.
-rm -rf "$SB/repo/core/skills/my skill"; runR --prune >/dev/null
+rm -rf "$SB/repo/core/skills/my skill"; runR --review </dev/null >/dev/null; runR --prune >/dev/null
 [ -e "$SB/.agents/skills/my skill" ] && no "the space-path leaked into later tests" || ok "cleaned up after itself"
 
 echo "~/.agents must be a real directory, not a symlink"
@@ -136,6 +137,7 @@ is "exits 0" "$(runR)" 0
 [ -L "$SB/.agents/shortcut" ] && ok "the symlink survives an install" || no "the symlink was silently eaten"
 [ "$(readlink "$SB/.agents/shortcut")" = "skills/tdd" ] && ok "and is still a link, not a copy of its target" \
   || no "the link was dereferenced into a regular file"
+runR --review </dev/null >/dev/null   # decision N: --prune never runs blind
 is "--prune exits 0" "$(runR --prune)" 0
 [ -e "$SB/.agents/shortcut" ] && no "symlink not pruned" || ok "and --prune still drops it on request"
 
@@ -160,6 +162,80 @@ printf 'token = "ghp_%s"\n' "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" >"$SB/.agents/skill
 is "refuses to stage a secret-bearing file" "$(runR)" 1
 outhas 'looks like a secret' && ok "says why" || no "no explanation"
 rm -rf "$SB/.agents/skills/leaky"
+
+echo "--review (decision N) — the inbox, and --prune never runs blind"
+# Answers ride stdin: the inbox walks drift (sorted) then extras (sorted), one read per item;
+# EOF means leave. Every case below keeps the inbox to a single item so the answer is unambiguous.
+rm -f "$SB/.agents.reviewed"
+mkdir -p "$SB/.agents/skills/novel"; printf 'novel machine skill\n' >"$SB/.agents/skills/novel/SKILL.md"
+is "a blind --prune refuses" "$(runR --prune)" 1
+outhas 'never runs blind' && ok "and says why" || no "no explanation"
+[ -f "$SB/.agents/skills/novel/SKILL.md" ] && ok "the refusal deleted nothing" || no "the refusal still deleted"
+is "--review --prune is refused as a combination" "$(runR --review --prune)" 2
+is "--review --dry-run likewise" "$(runR --review --dry-run)" 2
+
+dA="$(digest "$SB/.agents")"; dRepo="$(digest "$SB/repo/core")"
+is "--review with no answers (EOF = leave) exits 0" "$(runR --review </dev/null)" 0
+is "and wrote nothing to ~/.agents/" "$(digest "$SB/.agents")" "$dA"
+is "and nothing to the repo" "$(digest "$SB/repo/core")" "$dRepo"
+[ -f "$SB/.agents.reviewed" ] && ok "the review was recorded" || no "no review stamp"
+is "a reviewed --prune proceeds" "$(runR --prune)" 0
+[ -e "$SB/.agents/skills/novel" ] && no "the reviewed extra survived --prune" || ok "the reviewed extra was dropped"
+
+echo "--review — a stale review does not authorize a prune"
+mkdir -p "$SB/.agents/skills/seen"; echo s >"$SB/.agents/skills/seen/SKILL.md"
+runR --review </dev/null >/dev/null
+mkdir -p "$SB/.agents/skills/unseen"; echo u >"$SB/.agents/skills/unseen/SKILL.md"
+is "an extra that appeared AFTER the review refuses --prune" "$(runR --prune)" 1
+outhas 'changed since the last review' && ok "and says the review is stale" || no "no staleness explanation"
+printf 'rewritten\n' >"$SB/.agents/skills/seen/SKILL.md"; rm -rf "$SB/.agents/skills/unseen"
+is "an extra REWRITTEN after the review also refuses" "$(runR --prune)" 1
+runR --review </dev/null >/dev/null; runR --prune >/dev/null   # clean up for the next cases
+is "one review authorizes ONE prune — the stamp is consumed" "$( [ -f "$SB/.agents.reviewed" ] && echo kept || echo consumed )" "consumed"
+
+echo "--review — the import disposition"
+mkdir -p "$SB/.agents/skills/keeper"; printf 'worth keeping\n' >"$SB/.agents/skills/keeper/SKILL.md"
+is "'i' on an extra exits 0" "$(printf 'i\n' | runR --review)" 0
+grep -q 'worth keeping' "$SB/repo/core/skills/keeper/SKILL.md" 2>/dev/null \
+  && ok "the machine copy entered the repo working tree" || no "no import into core/"
+[ -f "$SB/.agents/skills/keeper/SKILL.md" ] && ok "the machine copy stays until an install" || no "the machine copy vanished"
+runR --dry-run >/dev/null
+outhas 'keeper' && no "still an extra after import" || ok "no longer an extra — core/ now provides it"
+
+printf '\nmachine-side fix\n' >>"$SB/.agents/skills/tdd/SKILL.md"
+is "'i' on a DRIFTED file exits 0" "$(printf 'i\n' | runR --review)" 0
+grep -q 'machine-side fix' "$SB/repo/core/skills/tdd/SKILL.md" && ok "the machine edit entered core/" || no "the edit did not enter core/"
+is "and the next run no longer refuses" "$(runR --dry-run)" 0
+
+echo "--review — the prune disposition"
+mkdir -p "$SB/.agents/skills/junk"; echo j >"$SB/.agents/skills/junk/SKILL.md"
+is "'p' on an extra exits 0" "$(printf 'p\n' | runR --review)" 0
+[ -e "$SB/.agents/skills/junk/SKILL.md" ] && no "'p' left the extra behind" || ok "'p' deleted the extra from ~/.agents/"
+printf '\nstray edit\n' >>"$SB/.agents/skills/handoff/SKILL.md"
+is "'p' on a DRIFTED file exits 0" "$(printf 'p\n' | runR --review)" 0
+grep -q 'stray edit' "$SB/.agents/skills/handoff/SKILL.md" && no "the machine edit survived 'p'" \
+  || ok "'p' restored the file from core/ — repo wins"
+is "and the next run no longer refuses" "$(runR --dry-run)" 0
+
+echo "--review — a secret never rides the import channel"
+mkdir -p "$SB/.agents/skills/oops"
+printf 'token = "ghp_%s"\n' "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" >"$SB/.agents/skills/oops/SKILL.md"
+is "'i' on a secret-bearing extra still exits 0" "$(printf 'i\n' | runR --review)" 0
+outhas 'import refused' && ok "the import was refused, saying why" || no "no refusal"
+[ -e "$SB/repo/core/skills/oops/SKILL.md" ] && no "the secret entered the repo" || ok "the secret never entered the repo"
+rm -rf "$SB/.agents/skills/oops"
+
+echo "--review — the provider-surface survey is read-only"
+mkdir -p "$SB/.claude/plugins/some-plugin"; echo p >"$SB/.claude/plugins/some-plugin/plugin.json"
+mkdir -p "$SB/.claude/commands"; echo c >"$SB/.claude/commands/mine.md"
+ln -s "$SB/.agents/skills" "$SB/.claude/skills"
+dC="$(digest "$SB/.claude")"
+is "--review exits 0" "$(runR --review </dev/null)" 0
+outhas 'plugins' && ok "surveys ~/.claude/plugins/" || no "plugins not surveyed"
+outhas 'some-plugin' && ok "and names what sits there" || no "entries not named"
+outhas 'governed' && ok "a symlink into ~/.agents/ is reported as governed" || no "the governed symlink was not classified"
+is "the survey wrote nothing" "$(digest "$SB/.claude")" "$dC"
+rm -rf "$SB/.claude"
 
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
