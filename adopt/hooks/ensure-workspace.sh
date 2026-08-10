@@ -24,8 +24,11 @@ mkdir -p "$ws" 2>/dev/null || exit 0
 
 if [ -e "$mission" ]; then
   # Present is enough. Report what it says, repair nothing.
-  state="$(awk -F': *' '/^state:/{print $2; exit}' "$mission" 2>/dev/null | tr -d '\r')"
-  spec="$(awk -F': *' '/^spec:/{print $2; exit}'  "$mission" 2>/dev/null | tr -d '\r')"
+  # Same parse as spec-session-orient.sh — the sub() strips the inline comment the template
+  # below carries ('spec: null   # or specs/<slug>.md'); without it that comment reads as a
+  # dangling spec pointer on every SessionStart after the first.
+  state="$(awk -F': *' '/^state:/{sub(/[[:space:]]*#.*/,"",$2); print $2; exit}' "$mission" 2>/dev/null | tr -d '\r')"
+  spec="$(awk  -F': *' '/^spec:/{sub(/[[:space:]]*#.*/,"",$2);  print $2; exit}' "$mission" 2>/dev/null | tr -d '\r')"
   if [ -z "$state" ]; then
     echo "workspace: MISSION.md has no readable 'state' — treating it as 'scoping'. Left as-is."
   fi
