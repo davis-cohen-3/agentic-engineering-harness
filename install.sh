@@ -14,24 +14,34 @@
 # touching the real machine.
 set -euo pipefail
 
-DRY_RUN=0 PRUNE=0 FORCE=0
+DRY_RUN=0 PRUNE=0 FORCE=0 REVIEW=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY_RUN=1 ;;
     --prune)   PRUNE=1 ;;
     --force)   FORCE=1 ;;
+    --review)  REVIEW=1 ;;
     -h|--help)
       sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
       echo
-      echo "usage: install.sh [--dry-run] [--prune] [--force]"
+      echo "usage: install.sh [--dry-run] [--prune] [--force] [--review]"
       echo "  --dry-run  report the plan, write nothing, exit non-zero if it would refuse"
-      echo "  --prune    drop files in ~/.agents/ that core/ no longer provides (opt-in)"
+      echo "  --prune    drop files in ~/.agents/ that core/ no longer provides (opt-in;"
+      echo "             never runs blind — a --review pass must precede it, decision N)"
       echo "  --force    install over locally-edited files, losing them"
+      echo "  --review   inbox every machine-side extra and drift with a per-file disposition"
+      echo "             (import into the repo / prune the machine side / leave), survey the"
+      echo "             non-symlinked provider surfaces read-only, and record the review"
+      echo "             that --prune requires. Installs nothing."
       exit 0 ;;
     *) echo "install.sh: unknown option: $1" >&2; exit 2 ;;
   esac
   shift
 done
+if [ "$REVIEW" -eq 1 ] && { [ "$DRY_RUN" -eq 1 ] || [ "$PRUNE" -eq 1 ] || [ "$FORCE" -eq 1 ]; }; then
+  echo "install.sh: --review runs alone — it installs nothing, so the other modes do not combine" >&2
+  exit 2
+fi
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC="$REPO/core"
@@ -43,6 +53,7 @@ REG_SRC="$CFG/depot/projects.yaml"
 REG_DST="$CFG/agents/projects.yaml"
 MANIFEST_REL=".install-manifest.sha256"
 SWAP_FLAG="$HOME/.agents.swap-in-progress"
+REVIEW_STAMP="$HOME/.agents.reviewed"
 
 say()  { printf '%s\n' "$*"; }
 step() { printf '\n\033[1m%s\033[0m\n' "$*"; }
@@ -55,6 +66,22 @@ sha() { shasum -a 256 "$1" | cut -d' ' -f1; }
 # core/ and adopt/ are asserted symlink-free by the gate, so this only ever fires on the
 # destination side and publishing a symlink never needs a defined meaning.
 rels() { (cd "$1" && find . \( -type f -o -type l \) ! -name "$MANIFEST_REL" | sed 's|^\./||' | LC_ALL=C sort); }
+
+# The extras' fingerprint is what a review stamps and what --prune checks against. Path AND
+# content: a review judged the file's bytes, so an extra rewritten after the review is as
+# unreviewed as one that appeared after it. Symlinks fingerprint by target, not through it —
+# sha() on a dangling link fails, and the link itself is what the review looked at.
+extra_id() {
+  if [ -L "$DEST/$1" ]; then printf 'link:%s  %s\n' "$(readlink "$DEST/$1")" "$1"
+  else printf '%s  %s\n' "$(sha "$DEST/$1")" "$1"; fi
+}
+extras_fingerprint() {
+  [ -d "$DEST" ] || return 0
+  rels "$DEST" | while IFS= read -r rel; do
+    if [ -n "$rel" ] && [ ! -e "$SRC/$rel" ]; then extra_id "$rel"; fi
+  done
+  return 0
+}
 
 [ -d "$SRC" ] || die "no core/ payload at $SRC"
 command -v shasum >/dev/null || die "shasum not found"
@@ -168,6 +195,102 @@ if [ "$n_extra" -gt 0 ]; then
   sed 's/^/            /' "$tmpd/extra"
 fi
 
+# ── Review (decision N): the inbound sync channel. Every machine-side deviation — drift and
+# extra — is an inbox item with a per-file disposition; nothing moves without an answer.
+# Installs nothing; ends by recording the review --prune requires.
+if [ "$REVIEW" -eq 1 ]; then
+  n_imported=0 n_pruned=0 n_left=0
+
+  # import = the machine copy enters the repo working tree, to be shipped by PR. The one thing
+  # that may never ride this channel is a secret (§5's governing invariant) — refuse, not carry.
+  import_into_repo() {
+    case "$(basename "$1")" in
+      .env|.env.*|secrets.env|auth.json)
+        say "    ✗ import refused: secret-bearing filename — left in place"; return 1 ;;
+    esac
+    if [ ! -L "$DEST/$1" ] && grep -qIE "$SECRET_RE" "$DEST/$1" 2>/dev/null; then
+      say "    ✗ import refused: contains what looks like a secret — left in place"; return 1
+    fi
+    mkdir -p "$SRC/$(dirname "$1")"
+    cp -Pp "$DEST/$1" "$SRC/$1"
+    say "    imported → core/$1  (uncommitted in the repo — ship it by PR)"
+  }
+
+  if [ "$((n_edit + n_extra))" -eq 0 ]; then
+    step "Review — inbox empty: no drift, no extras"
+  else
+    step "Review — inbox: $n_edit drifted, $n_extra extra"
+    say "  answers: i = import into the repo · p = prune the machine side · anything else = leave"
+  fi
+
+  while IFS= read -r rel <&3; do
+    [ -z "$rel" ] && continue
+    say ""
+    say "  DRIFT  $rel — differs from core/ and is not what install.sh last wrote"
+    { diff -u "$SRC/$rel" "$DEST/$rel" 2>/dev/null || true; } | sed -n '3,30p' | sed 's/^/      /'
+    printf '  import / prune (restore from core/) / leave?  [i/p/L] '
+    ans=""; IFS= read -r ans || true
+    case "$ans" in
+      [iI]) if import_into_repo "$rel"; then n_imported=$((n_imported+1)); else n_left=$((n_left+1)); fi ;;
+      [pP]) cp -Pp "$SRC/$rel" "$DEST/$rel"
+            say "    restored from core/ — the machine-side edit is discarded"
+            n_pruned=$((n_pruned+1)) ;;
+      *)    say "    left — install keeps refusing until it is reconciled"; n_left=$((n_left+1)) ;;
+    esac
+  done 3<"$tmpd/edited"
+
+  while IFS= read -r rel <&3; do
+    [ -z "$rel" ] && continue
+    say ""
+    if [ -L "$DEST/$rel" ]; then
+      say "  EXTRA  $rel → $(readlink "$DEST/$rel") — in ~/.agents/, not in core/"
+    else
+      say "  EXTRA  $rel — in ~/.agents/, not in core/"
+      sed -n '1,6p' "$DEST/$rel" 2>/dev/null | sed 's/^/      /'
+    fi
+    printf '  import / prune (delete from ~/.agents/) / leave?  [i/p/L] '
+    ans=""; IFS= read -r ans || true
+    case "$ans" in
+      [iI]) if import_into_repo "$rel"; then n_imported=$((n_imported+1)); else n_left=$((n_left+1)); fi ;;
+      [pP]) rm -f "$DEST/$rel"
+            rmdir "$(dirname "$DEST/$rel")" 2>/dev/null || true   # the immediate dir only, never a walk up
+            say "    deleted from ~/.agents/"
+            n_pruned=$((n_pruned+1)) ;;
+      *)    say "    left — a kept extra; --prune (after this review) drops it"; n_left=$((n_left+1)) ;;
+    esac
+  done 3<"$tmpd/extra"
+
+  # The non-symlinked provider locations, read-only: provider-shipped novelties must be VISIBLE,
+  # but judging a genuinely new kind of surface stays human (decision N) — no dispositions here.
+  step "Provider surfaces — read-only survey"
+  found_any=0
+  for p in "$HOME/.claude/plugins" "$HOME/.claude/commands" "$HOME/.claude/skills" \
+           "$HOME/.claude/agents"  "$HOME/.claude/hooks"    "$HOME/.claude/output-styles" \
+           "$HOME/.codex/prompts"  "$HOME/.codex/skills"    "$HOME/.codex/agents" "$HOME/.codex/hooks"; do
+    [ -e "$p" ] || [ -L "$p" ] || continue
+    found_any=1
+    disp="~${p#"$HOME"}/"
+    if [ -L "$p" ]; then
+      tgt="$(readlink "$p")"
+      case "$tgt" in
+        "$HOME/.agents/"*|*/.agents/*) say "  $disp → $tgt — governed (symlinked into ~/.agents/)" ;;
+        *)                             say "  $disp → $tgt — a symlink pointing OUTSIDE ~/.agents/" ;;
+      esac
+    elif [ -d "$p" ]; then
+      say "  $disp  $(find "$p" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ') entries: $(cd "$p" && ls -1 2>/dev/null | head -8 | tr '\n' ' ')"
+    fi
+  done
+  [ "$found_any" -eq 1 ] || say "  none present"
+
+  extras_fingerprint | shasum -a 256 | cut -d' ' -f1 >"$REVIEW_STAMP"
+
+  step "Review complete — nothing was installed"
+  say "  imported $n_imported · pruned $n_pruned · left $n_left"
+  [ "$n_imported" -gt 0 ] && say "  imported files are uncommitted in $REPO — ship them by PR"
+  say "  review recorded → $REVIEW_STAMP (what --prune requires)"
+  exit 0
+fi
+
 if [ "$n_edit" -gt 0 ]; then
   say ""
   say "  ✗ $n_edit file(s) in $DEST differ from core/ and are not what install.sh last wrote."
@@ -186,6 +309,17 @@ if [ "$DRY_RUN" -eq 1 ]; then
 fi
 
 [ "$n_edit" -gt 0 ] && [ "$FORCE" -eq 0 ] && exit 1
+
+# ── Decision N: --prune never runs blind, and the review must have judged THESE extras — a
+# stamp for a different set is no review at all. --dry-run exits above (it IS a preview), and
+# pruning zero extras has nothing to be blind to.
+if [ "$PRUNE" -eq 1 ] && [ "$n_extra" -gt 0 ]; then
+  cur_fp="$(extras_fingerprint | shasum -a 256 | cut -d' ' -f1)"
+  [ -f "$REVIEW_STAMP" ] || die "--prune never runs blind (decision N): no review on record for these $n_extra extra(s).
+  Run  install.sh --review  first, then re-run with --prune."
+  [ "$(head -1 "$REVIEW_STAMP" 2>/dev/null)" = "$cur_fp" ] || die "--prune refused: the extras in $DEST changed since the last review.
+  Re-run  install.sh --review, then --prune."
+fi
 
 # ── Build the whole desired tree before touching $DEST.
 step "Install"
@@ -220,6 +354,7 @@ if [ -d "$DEST" ]; then
 fi
 mv "$staging" "$DEST"
 rm -f "$SWAP_FLAG"
+[ "$PRUNE" -eq 1 ] && rm -f "$REVIEW_STAMP"   # one review authorizes one prune
 say "  installed $(wc -l <"$DEST/$MANIFEST_REL" | tr -d ' ') files → $DEST"
 
 # ── wt
