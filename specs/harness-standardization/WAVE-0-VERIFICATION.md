@@ -125,10 +125,12 @@ by CONTRACT §5. **T1.3 must run `--prune`**, or T0.6's grill collapse never rea
 ## Starting the next session
 
 Read, in this order: `DECISIONS-PENDING.md` → `CONTRACT.md` → `plan/tasks.md` → this file →
-`T0.16-REVIEW.md`. Then begin **Wave 1**. Everything in Wave 0 is settled — do not reopen it.
+`T0.16-REVIEW.md`. Then begin **Wave 1a** — the 2026-08-09 pass-4 amendments (decisions M–P)
+split Wave 1 into 1a (activation, next) and 1b (machine cleanup, deferred unscheduled), and added
+a preflight. Everything in Wave 0 is settled — do not reopen it.
 
-**Branch:** `wave0/harness-standardization`, 20 commits, nothing pushed. `make check` is green
-and runs all 284 assertions.
+**Branch:** `wave0/harness-standardization`, 27 commits at the pass-4 amendments (2026-08-09),
+nothing pushed. `make check` is green and runs all 284 assertions.
 
 **Structure** (the plan's older files describe the pre-restructure layout):
 
@@ -151,6 +153,9 @@ baseline:
 - **L** — `AGENTS.md` is the single profile; `CLAUDE.md` is a stub that `@AGENTS.md`.
   Re-confirmed 2026-08-09.
 - **T1.1 is done** — `.workspace/` is globally ignored.
+- **M–P (pass 4, 2026-08-09)** — Wave 1 splits into 1a/1b; `install.sh --review` and the
+  never-prune-blind rule; the adoption version stamp; MCP config out of scope. See
+  `DECISIONS-PENDING.md` pass 4.
 
 **Three habits this wave earned the hard way**, all now enforced by tests:
 

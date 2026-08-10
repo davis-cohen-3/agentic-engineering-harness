@@ -1,7 +1,10 @@
 # Harness + Depot Operating Contract
 
-**Status:** Reconciled against all settled decisions. Not yet implemented — nothing here has been built.
-**Settled:** 2026-08-07 (DEC-1…15) and 2026-08-08 (A–J), across two decision passes and two audits.
+**Status:** Reconciled against all settled decisions through pass 4 (M–P). **Wave 0 — §9's eight
+components — is built and verified** (`WAVE-0-VERIFICATION.md`, 2026-08-09); the machine is
+untouched except §10 step 19.
+**Settled:** 2026-08-07 (DEC-1…15), 2026-08-08 (A–J, K–L), 2026-08-09 (M–P), across four decision
+passes and two audits.
 **Authority:** [`DECISIONS-PENDING.md`](./DECISIONS-PENDING.md) → `CONTRACT.md` (this file) →
 [`HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md`](./HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md) →
 [`plan/tasks.md`](./plan/tasks.md). Where any two disagree, the higher wins.
@@ -312,6 +315,11 @@ installs over a local edit and loses it — the backup is the only recovery); mi
 It **verifies provider capabilities** — that `WorktreeCreate` registers and the worktree-location
 settings exist — rather than asserting a version number.
 
+⚠ **Amended by decision N.** `install.sh` additionally gains `--review` — an inbox listing every
+machine-side extra and drift with a per-file disposition (*import / prune / leave*), plus a
+read-only survey of the non-symlinked provider locations so provider-shipped novelties are
+visible. **`--prune` never runs blind**: a review pass precedes it, always.
+
 **`adopt-harness/copy.sh`** copies `adopt/`, creates the `.agents/skills → .claude/skills` symlink
 that Codex requires, and installs both providers' hook bindings. It no longer copies
 `.claude/FLOOR.md`, `agent_docs/`, `spec.thoughts.md`, `spec.sessions/`, or `*.context.md`.
@@ -393,6 +401,7 @@ skill proposes candidates and asks.
 | Agents | divergent formats accepted. Claude `.md` + frontmatter, Codex `.toml` + `developer_instructions`. Dual-maintained, no generator |
 | Plugins | project scoping is **untested**, not a known limitation. Verify in a disposable trusted repo |
 | LSP | **not delivered by the harness.** No LSP plugin is installed on this machine. A per-project area-pack adoption check. Codex equivalence unassigned |
+| MCP config | **out of harness scope** (decision P) — per-repo `.mcp.json` and provider equivalents stay provider-native; the harness neither templates nor manages them |
 
 ⚠ **Registration alone does not achieve hook parity.** Codex sends edits through `apply_patch`, so a
 hook reading `.tool_input.file_path` / `.content` / `.new_string` silently no-ops on every Codex
@@ -573,10 +582,15 @@ change required.
 | A Codex `/simplify` equivalent | an ordinary instruction, not a skill |
 | A universal cleanup mechanism | the creator owns removal |
 | Check-then-write history filenames | a race; atomic creation instead |
+| MCP config as a harness surface | provider-native per repo; out of scope by decision P — a decision, not an omission |
 
 ---
 
 ## 9. What must be built
+
+✅ **All eight were built and verified in Wave 0** — see `WAVE-0-VERIFICATION.md` per task.
+(The four Codex `.toml` agents §9 once implied were absent turned out to exist on the machine,
+authored and unversioned — found by T0.1a and imported; the walk was widened accordingly.)
 
 | # | Component | Note |
 | --- | --- | --- |
@@ -622,18 +636,30 @@ No machine changes; fully reversible; unblocks everything.
 
 ### Wave 1 — machine
 
-Highest risk. Requires a standalone script or a Codex session — Wave 1 moves Claude's live runtime
-state and cannot be performed by the Claude session doing the work.
+⚠ **Amended by decision M (2026-08-09): Wave 1 splits.** **Wave 1a — activation** (steps 20, 21,
+22a, 24, 25, 26-as-descoped-by-K, 27) upgrades harness-owned territory and touches **no live
+runtime state**; the "cannot be performed by a Claude session" constraint no longer applies to it,
+though the symlink and settings edits should still run with no live session. **Wave 1b — machine
+cleanup** (steps 22b, 23) moves Claude's live runtime state, is **deferred unscheduled**, and if
+it ever runs requires a non-Claude operator and a rehearsed, manifest-driven script. A fresh
+machine never needs 1b. `plan/tasks.md` is the task-level authority for both.
 
-19. `~/.config/git/ignore` += `.workspace/`.
-20. Establish `~/.config/agents/secrets.env`; update `~/.zshrc` and both rule files.
-21. Run `install.sh --dry-run`, reconcile the two drifted skills, then install.
-22. Undo the `~/.claude` symlink; symlink provider subdirectories to `~/.agents/`.
-23. Retire `~/agents/`; move Conductor archives to `~/.conductor/`.
-24. Migrate the registry; rewrite `worktree_root` values; add `depot`.
-25. Configure both providers' worktree roots; register `WorktreeCreate`.
-26. Register the six safety hooks in `~/.codex/hooks.json`; **trust each hash and observe each fire**.
-27. Run the Codex plugin-scoping experiment in a disposable trusted repo.
+19. ✅ **Done 2026-08-09.** `~/.config/git/ignore` += `.workspace/`.
+20. Establish `~/.config/agents/secrets.env`; update `~/.zshrc` and both rule files. *(1a — it
+    removes machine secrets from `~/agents/claude/`, the live §5-invariant violation.)*
+21. Run `install.sh --dry-run`, reconcile the **eight** drifted files (measured by T0.16), then
+    install **with `--prune`** after a `--review` pass (N). *(1a)*
+22. **Split by M.** 22a *(1a)*: symlink the provider skill/agent subdirectories to `~/.agents/`
+    **through the existing topology**, moving displaced real directories aside; re-point the
+    rules injection to `~/.agents/hooks/`. 22b *(1b)*: undo the `~/.claude` symlink and move the
+    runtime state into a real `~/.claude/`.
+23. Retire `~/agents/`; move Conductor archives to `~/.conductor/`. *(1b — deferred unscheduled)*
+24. Migrate the registry; rewrite `worktree_root` values; add `depot`. *(1a)*
+25. Configure both providers' worktree roots; register `WorktreeCreate`. *(1a)*
+26. Trust `inject-global-rules.sh` in Codex and **observe it fire** — descoped from the six
+    safety hooks by decision K. *(1a)*
+27. Run the Codex plugin-scoping experiment — and the exit-127 probe — in a disposable trusted
+    repo. *(1a; both probes need nothing from the other steps and may run first.)*
 
 ### Wave 2 — projects
 
@@ -661,8 +687,8 @@ state and cannot be performed by the Claude session doing the work.
    for this reason.**
 3. ⚠ **`~/.agents/skills` has already drifted** from the repo (`adopt-harness`, `docs-drift`).
    `install.sh` will refuse until this is reconciled by hand. Intended.
-4. ⚠ **Chicken-and-egg.** Wave 1 moves Claude's live runtime state and cannot be performed by a
-   Claude session. Needs a standalone script or a Codex session.
+4. ⚠ **Chicken-and-egg — narrowed by decision M.** Only Wave 1b (§10 steps 22b–23) moves Claude's
+   live runtime state and needs a non-Claude operator. Wave 1a carries no such constraint.
 5. **melting-v2's documentation merge needs human per-file decisions** and cannot be automated.
 6. **Four provider behaviours are documented by current official sources but not locally
    acceptance-tested:** Codex resolving hook commands from session cwd; Codex aliasing `Edit`/`Write`
