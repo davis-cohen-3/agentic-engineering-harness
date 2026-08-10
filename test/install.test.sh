@@ -43,6 +43,28 @@ is "running twice produces an identical tree" "$(digest "$SB/.agents")" "$d1"
 outhas 'already present, left untouched' && ok "registry not re-migrated" || no "registry re-migrated"
 [ -d "$SB/.agents.prev" ] && ok "one backup at ~/.agents.prev" || no "no backup"
 
+echo "fresh machine: a full run against an EMPTY \$HOME (PF6)"
+# The sandbox above models THIS machine — it seeds a depot registry before the first run. A fresh
+# or second machine has nothing: no ~/.config, no registry, no ~/.local/bin. That must be a clean
+# first-class install, not an error path. Second-machine adoption is this case with real paths.
+FM="$SB/fresh-home"; mkdir -p "$FM"
+runF() { HOME="$FM" XDG_CONFIG_HOME="$FM/.config" "$REPO/install.sh" "$@" >"$SB/out" 2>&1; echo $?; }
+is "exits 0" "$(runF)" 0
+[ -f "$FM/.agents/skills/tdd/SKILL.md" ] && ok "core/ landed in the empty home" || no "core/ did not land"
+[ -f "$FM/.agents/.install-manifest.sha256" ] && ok "install manifest written" || no "no install manifest"
+outhas 'no registry at' && ok "absent registry reported as nothing-to-migrate, not an error" \
+  || no "absent registry not handled as the normal fresh-machine case"
+[ -e "$FM/.config/agents/projects.yaml" ] && no "conjured a registry from nothing" || ok "no registry invented"
+[ -x "$FM/.local/bin/wt" ] && ok "wt installed into a created ~/.local/bin" || no "wt missing"
+[ -x "$FM/.local/bin/ensure-workspace.sh" ] && ok "ensure-workspace.sh fallback installed" || no "fallback initialiser missing"
+[ -x "$FM/.local/bin/workspace-record" ] && ok "workspace-record installed" || no "workspace-record missing"
+[ -d "$FM/.agents.prev" ] && no "a first run has nothing to back up, yet made a backup" || ok "no backup on a first run"
+[ -e "$FM/.agents.swap-in-progress" ] && no "swap flag left behind" || ok "no swap flag left behind"
+df1="$(digest "$FM/.agents")"
+is "a second run exits 0" "$(runF)" 0
+is "and is idempotent — identical tree" "$(digest "$FM/.agents")" "$df1"
+[ -d "$FM/.agents.prev" ] && ok "the second run made the backup" || no "no backup after the second run"
+
 echo "refuses on a hand-edited projection"
 printf '\nhand edit\n' >>"$SB/.agents/skills/docs-drift/SKILL.md"
 printf '\nhand edit\n' >>"$SB/.agents/skills/adopt-harness/SKILL.md"
