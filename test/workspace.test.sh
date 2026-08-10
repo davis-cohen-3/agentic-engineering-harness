@@ -45,6 +45,24 @@ echo "ensure-workspace.sh"
 grep -q '^state: scoping' "$SB/proj/.workspace/MISSION.md" && ok "defaults to state: scoping" || no "wrong default state"
 grep -q '^spec: null'     "$SB/proj/.workspace/MISSION.md" && ok "defaults to spec: null"     || no "wrong default spec"
 
+# The report path must parse the very template the create path writes: its inline comment
+# ('spec: null   # or specs/<slug>.md') once read as a dangling spec pointer, so every
+# SessionStart after the first warned about a spec named 'null   # or specs/<slug>.md'.
+out="$( cd "$SB/proj" && "$EW" 2>&1 )"
+[ -z "$out" ] && ok "silent when re-run over its own default template" || no "warned on its own template: $out"
+
+mkdir -p "$SB/proj/specs" && : >"$SB/proj/specs/real.md"
+printf -- '---\nstate: building\nspec: specs/real.md   # picked in session 3\n---\n' >"$SB/proj/.workspace/MISSION.md"
+out="$( cd "$SB/proj" && "$EW" 2>&1 )"
+[ -z "$out" ] && ok "inline comment stripped: a commented pointer to a REAL spec stays silent" \
+  || no "commented pointer to a real spec still warned: $out"
+
+printf -- '---\nstate: building\nspec: specs/gone.md   # picked in session 3\n---\n' >"$SB/proj/.workspace/MISSION.md"
+out="$( cd "$SB/proj" && "$EW" 2>&1 )"
+echo "$out" | grep -q 'does not exist here: specs/gone.md$' \
+  && ok "commented pointer to a MISSING spec still warns, with the clean path" \
+  || no "missing-spec warning absent or carries the comment: $out"
+
 printf 'MINE\n' >"$SB/proj/.workspace/MISSION.md"
 before="$(cat "$SB/proj/.workspace/MISSION.md")"
 n=0; while [ $n -lt 10 ]; do ( cd "$SB/proj" && "$EW" >/dev/null 2>&1 ); n=$((n+1)); done
