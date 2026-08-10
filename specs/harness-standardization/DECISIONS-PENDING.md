@@ -1,15 +1,19 @@
 # Settled decisions — harness standardization
 
-**Status:** ✅ **Closed.** Two decision passes are complete and every entry is answered. This file is
+**Status:** ✅ **Closed**, plus a **pass 3** of amendments raised while executing Wave 0 and a
+**pass 4** settled while reviewing the closed wave before any machine step. This file is
 the **authority** for intent; `CONTRACT.md` and the design review are reconciled *from* it.
-**Settled:** 2026-08-07 (pass 1, DEC-1…15) and 2026-08-08 (pass 2, A–J below).
-**Implementation posture:** nothing has been built, installed, moved, or migrated.
+**Settled:** 2026-08-07 (pass 1, DEC-1…15), 2026-08-08 (pass 2, A–J), 2026-08-08 (pass 3, K–L),
+2026-08-09 (pass 4, M–P).
+**Implementation posture:** Wave 0 is complete and verified (`WAVE-0-VERIFICATION.md`). The machine
+is untouched except Wave 1 T1.1 (`.workspace/` in the global gitignore, pulled forward on the
+developer's instruction); no other repository has been touched.
 
 ## Authority order
 
 1. **This file** — the decisions, and the verified facts behind them.
 2. **`CONTRACT.md`** — the operating model, reconciled against this file.
-3. **`docs/HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md`** — DEC-1…15 evidence and provenance.
+3. **`HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md`** — DEC-1…15 evidence and provenance.
 4. **`plan/tasks.md`** — the execution plan.
 5. **`PRE-IMPLEMENTATION-CONTRACT-AUDIT.md`** — historical; superseded wherever this file differs.
 6. **`01-*.md` … `08-*.md`** — legacy, superseded, not executable.
@@ -368,10 +372,137 @@ Four issues were found and all four are now fixed:
 
 ---
 
+## Pass 3 — amendments raised during implementation
+
+Decisions taken **after** the baseline was committed, because executing Wave 0 surfaced a
+contradiction the two earlier passes did not. Recorded here rather than absorbed silently: this
+file is the authority, so an amendment that lives only in code is the failure this epic exists to
+fix.
+
+**Both were re-confirmed by the developer on 2026-08-09**, after the implementation existed:
+K ("repos do own their own hooks") and L ("AGENTS.md is the single profile, CLAUDE.md imports
+it"). They are settled, not provisional.
+
+### K — Hooks are repo-owned; machine-wide hook registration is deferred
+
+**Raised at T0.5.** `CONTRACT.md` §5 could not be executed as written. Two of its statements do
+not compose:
+
+- `core/hooks/` is part of the **machine** payload, and the six safety hooks "must be registered in
+  `~/.codex/hooks.json` — this is a **machine-level** gap only";
+- yet "hook command paths resolve from `$(git rev-parse --show-toplevel)`", with absolute machine
+  paths explicitly rejected as breaking on a repository move.
+
+`$(git rev-parse --show-toplevel)` only resolves to a real script if the scripts are **inside the
+repo**, so hooks cannot be both machine-installed and bound that way.
+
+**Settled 2026-08-08 by the developer: a project/repo owns its own hooks.** Machine-wide
+registration is a *maybe later*, explicitly not configured now.
+
+| | Disposition |
+| --- | --- |
+| The seven repo-level hooks | `adopt/hooks/` → `<target>/.claude/hooks/`, bound by both providers |
+| `inject-global-rules.sh` | stays in `core/hooks/` — it exists to inject personal rules **outside** projects and suppresses itself inside any repo owning `.claude/` or `CLAUDE.md`, so it is the one hook that is genuinely machine-level |
+| Claude binding | `adopt/settings.json` → `<target>/.claude/settings.json`, `$CLAUDE_PROJECT_DIR`-relative |
+| Codex binding | `adopt/codex/hooks.json` → `<target>/.codex/hooks.json`, resolved from `$(git rev-parse --show-toplevel)` |
+| Machine-wide safety hooks | **deferred** — Wave 1 T1.8 is descoped to `inject-global-rules.sh` |
+
+**Consequence, accepted:** the scripts are copied per repo, so a hook fix must be re-adopted into
+each repo rather than installed once. The compensating property is that a clone carries its own
+guardrails and does not depend on the machine having been provisioned.
+
+**"One script, two bindings" still holds** — it just means one copy *per repo* read by both
+providers, not one copy per machine.
+
+### L — The repo profile is single-sourced in `AGENTS.md`
+
+**Raised at T0.5**, which requires an adopted repo to be discoverable by both providers.
+`AGENTS.template.md` had no specified content, and the obvious shape — a second copy of
+`CLAUDE.template.md`'s profile — creates exactly the duplication this repo's central discipline
+forbids.
+
+**`AGENTS.md` is the profile; `CLAUDE.md` is a stub that `@AGENTS.md`.** Codex reads `AGENTS.md`
+natively and Claude follows the import, so every fact is written once. Claude-only guidance goes
+below the import.
+
+---
+
+## Pass 4 — Wave 1 split and the sync channels
+
+Settled 2026-08-09 with the developer, in a review session between the close of Wave 0 and any
+machine step. Raised because Wave 1 as planned conflated two different projects, and because
+thinking through day-to-day use surfaced two missing sync channels in the single-source model.
+
+### M — Wave 1 splits: activation now; machine cleanup deferred, unscheduled
+
+The old Wave 1 bundled two things:
+
+- **Activation** — upgrade the already-installed `~/.agents/` to the repo (the machine runs a
+  drifted version N−1 today), add `wt`, the registry, provider configuration, and point the
+  provider skill/agent subdirectories at `~/.agents/`. Additive, or an in-place upgrade of
+  harness-owned territory. Touches **no live runtime state**.
+- **Cleanup** — undo the `~/.claude` symlink, move ~903 MB of live Claude runtime state, delete
+  `~/agents/`. Pure hygiene: its value is eliminating the `~/agents` vs `~/.agents`
+  one-character hazard and the two-hop symlink topology. The **entire** runtime-state risk of
+  the wave lives here, and the harness functions without it.
+
+**Settled: they split.** Wave 1a is the activation and runs next. Wave 1b is the cleanup,
+**deferred unscheduled** — it runs only on an explicit later decision, with a rehearsed
+manifest-driven script and a non-Claude operator, or never.
+
+- **T1.2 (secrets) moves into 1a.** `secrets.env` currently sits inside `~/agents/claude/` — a
+  tree whose siblings are authored rules Wave 0 imported into a git repo. That violates §5's
+  governing invariant *today*, and the fix touches zero runtime state and is reversible at every
+  step. It is the one cleanup-class risk that is live rather than hypothetical.
+- **The provider subdir symlinks move into 1a** (task T1.4a): without them Claude keeps reading
+  `~/agents/claude/skills` and the machine never converges. They are laid **through the existing
+  topology** (`~/agents/claude/skills` itself becomes the symlink); displaced real directories
+  are moved aside, never deleted.
+- **Consequence, accepted:** until 1b runs — if ever — `~/agents/` lives on, the one-character
+  hazard stands, and CONTRACT §5's "`~/agents/` is retired" is a target state, not a fact.
+- **A fresh machine never needs 1b.** It has no legacy trees. Second-machine adoption is
+  clone + `install.sh` + per-machine facts (registry, secrets, provider settings) — the same
+  path the install sandbox already exercises.
+
+### N — `install.sh --review`: the inbound channel; prune never runs blind
+
+The single-source model needs its two sync channels made visible. Inbound (machine → repo):
+
+- `install.sh` gains `--review`: every extra (`keep`) and every drift (refusal) presented as an
+  inbox with a per-file disposition — **import** (copy into the repo working tree, ship by PR),
+  **prune**, or **leave**.
+- `--review` also lists, read-only, what sits in the non-symlinked provider locations
+  (`~/.claude/plugins/`, other provider surfaces), so provider-shipped novelties are visible.
+  Judging a genuinely *new kind* of surface stays human — observed traffic is not the grammar.
+- **Standing rule: `--prune` never runs blind.** A review pass precedes it, always.
+- Anti-bloat: a flag on `install.sh`, not a new tool or skill.
+
+### O — Adoption is the update channel; `copy.sh` stamps the harness version
+
+Outbound (repo → adopted repos). Decision K's accepted consequence — hook scripts are copied per
+repo, so a fix must be re-adopted into each — gets its mitigation:
+
+- `copy.sh` records the harness source commit in the adopted repo; a check compares the stamp to
+  the harness repo and reports staleness ("melting is N commits behind").
+- **Re-running adoption is the supported upgrade path** — safe by construction, because
+  scaffolding copies unconditionally and fills are write-only-when-absent.
+- The live demonstration of the failure this closes: melting's `protect-secrets.sh` fork carries
+  the S1 CRITICAL gap while the repo's copy is fixed.
+
+### P — MCP configuration is out of the harness's scope
+
+Per-repo MCP config (`.mcp.json` and provider equivalents) stays **provider-native, owned by
+each repo**. The harness neither templates, copies, nor manages it; `adopt-harness` does not
+prompt for it. Recorded so the absence is a decision, not an omission. Revisit only if per-repo
+MCP drift becomes a demonstrated pain.
+
+---
+
 ## Open, deliberately deferred
 
 | Item | Why deferred |
 | --- | --- |
+| Wave 1b — machine cleanup (T1.4b: undo the `~/.claude` symlink, move the runtime state; T1.5: retire `~/agents/`) | deferred **unscheduled** by M; if it ever runs it needs a rehearsed manifest-driven script and a non-Claude operator. A fresh machine never needs it |
 | `hot-mac` layer or retirement | unique unversioned source; preserve first, decide later |
 | Depot `post_create_cmd` | additive, non-blocking; own Depot spec |
 | Codex PR-review equivalent | no requirement under E |

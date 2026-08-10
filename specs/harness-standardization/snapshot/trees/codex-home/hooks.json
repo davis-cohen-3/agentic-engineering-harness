@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/daviscohen/.codex/hooks/inject-global-rules.sh'"
+          }
+        ]
+      }
+    ]
+  }
+}

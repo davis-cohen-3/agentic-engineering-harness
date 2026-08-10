@@ -3,7 +3,7 @@
 > Deletes the Makefile and replaces spec binding with another active-spec script. The gate is **retained**; binding is **deleted entirely**. FLOOR removal survives as task T0.13 — harvest only the content-disposition research.
 >
 > **Authority:** `DECISIONS-PENDING.md` → `CONTRACT.md` →
-> `docs/HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md` → `plan/tasks.md`.
+> `HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md` → `plan/tasks.md`.
 > Retained as provenance and research. Harvest evidence from it; do not run its instructions.
 >
 > *Bannered 2026-08-08.*
@@ -105,7 +105,7 @@ what we changed in a vendored skill — rewriting it would falsify the provenanc
 - [ ] #2: `rg -n "FLOOR" --glob '!docs/**' --glob '!specs/harness-standardization/**'` returns nothing
 - [ ] #3: `CLAUDE.md` is exactly one line, `@AGENTS.md`; `/context` in a fresh session in this repo
       lists `CLAUDE.md` under Memory files and the loaded content is `AGENTS.md`'s
-- [ ] #4: `rg -n "make check|GATE_STEPS|SETUP_STEPS|gate\.mk" --glob '!docs/ARCHITECTURE-REVIEW-2026-07.md' --glob '!.claude/skills/VENDORED.md' --glob '!specs/harness-standardization/**'`
+- [ ] #4: `rg -n "make check|GATE_STEPS|SETUP_STEPS|gate\.mk" --glob '!research/ARCHITECTURE-REVIEW-2026-07.md' --glob '!.claude/skills/VENDORED.md' --glob '!specs/harness-standardization/**'`
       returns nothing
 - [ ] #5: OVERLAY-CONTRACT's slot table has 7 rows (slot 4 gone), and slot 2 names no file format
 - [ ] the base's own checks, as newly declared in `AGENTS.md`, pass

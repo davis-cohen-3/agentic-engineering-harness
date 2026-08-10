@@ -1,0 +1,100 @@
+---
+name: domain-modeling
+description: Build and sharpen a project's domain model. Use when the user wants to pin down domain terminology or a ubiquitous language, record an architectural decision, or when another skill needs to maintain the domain model.
+---
+
+# Domain Modeling
+
+Actively build and sharpen the project's domain model as you design. This is the *active* discipline — challenging terms, inventing edge-case scenarios, and writing the glossary and decisions down the moment they crystallise. (Merely *reading* `CONTEXT.md` for vocabulary is not this skill — that's a one-line habit any skill can do. This skill is for when you're changing the model, not just consuming it.)
+
+## Discover the repository contract first
+
+Before asking questions or creating documentation:
+
+1. Read the repository's agent instructions (`AGENTS.md`, `CLAUDE.md`, or equivalent).
+2. Read its documentation index or README if one exists.
+3. Identify the existing owners for terminology, current implementation, durable implementation decisions, and product/design authority.
+4. Inspect the relevant code and capability/module README files before treating a factual question as unresolved.
+
+Use the repository's existing paths and formats. If it has no documentation contract, the fallback is a single `CONTEXT.md` plus `docs/adr/`.
+
+Never create a second glossary, ADR directory, or local product specification merely because the fallback layout is familiar.
+
+## Source-of-truth discipline
+
+Keep current behavior, product/design intent, repository implementation decisions, and terminology separate. When code, documentation, and product/design intent disagree, identify the exact conflict and its owners. Do not silently choose a winner or make a durable document claim something the code does not support.
+
+## File structure fallback
+
+Most repos have a single context:
+
+```
+/
+├── CONTEXT.md
+├── docs/
+│   └── adr/
+│       ├── 0001-event-sourced-orders.md
+│       └── 0002-postgres-for-write-model.md
+└── src/
+```
+
+If a `CONTEXT-MAP.md` exists at the root, the repo has multiple contexts. The map points to where each one lives:
+
+```
+/
+├── CONTEXT-MAP.md
+├── docs/
+│   └── adr/                          ← system-wide decisions
+├── src/
+│   ├── ordering/
+│   │   ├── CONTEXT.md
+│   │   └── docs/adr/                 ← context-specific decisions
+│   └── billing/
+│       ├── CONTEXT.md
+│       └── docs/adr/
+```
+
+Create files lazily — only when you have something to write, and **only after asking**. If no `CONTEXT.md` exists, propose creating one when the first term is resolved; if no `docs/adr/` exists, propose it when the first ADR is needed. Never bring a documentation surface into existence as a side effect of a conversation — say what you would create and why, and wait for a yes.
+
+## During the session
+
+### Challenge against the glossary
+
+When the user uses a term that conflicts with the repository's canonical language, call it out immediately. "The glossary defines 'cancellation' as X, but you seem to mean Y — which is it?"
+
+### Sharpen fuzzy language
+
+When the user uses vague or overloaded terms, propose a precise canonical term. "You're saying 'account' — do you mean the Customer or the User? Those are different things."
+
+### Discuss concrete scenarios
+
+When domain relationships are being discussed, stress-test them with specific scenarios. Invent scenarios that probe edge cases and force the user to be precise about the boundaries between concepts.
+
+### Cross-reference with code
+
+When the user states how something works, check whether the code agrees. If you find a contradiction, surface it: "Your code cancels entire Orders, but you just said partial cancellation is possible — which is right?"
+
+### Update the owning document inline
+
+When a term is resolved, update the canonical glossary right there. Don't batch these up — capture them as they happen. Use the repository's format; in the fallback layout, use [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md).
+
+The canonical glossary should be concise and free of implementation decisions unless the repository's convention explicitly says otherwise. Do not use it as a spec, scratch pad, or ADR store.
+
+### Offer ADRs sparingly
+
+Only offer to create an ADR when all three are true:
+
+1. **Hard to reverse** — the cost of changing your mind later is meaningful
+2. **Surprising without context** — a future reader will wonder "why did they do it this way?"
+3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons
+
+If any of the three is missing, skip the ADR. Use the format in [ADR-FORMAT.md](./ADR-FORMAT.md).
+
+## Verify the model against the code
+
+Before ending the session:
+
+- Re-read the changed glossary and ADR files.
+- Check each resolved claim against the relevant code and current-architecture documentation.
+- Update any durable document made false by the work, following the repository's ownership rules.
+- Report unresolved conflicts explicitly rather than papering them over.

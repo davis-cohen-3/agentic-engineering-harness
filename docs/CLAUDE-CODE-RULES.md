@@ -50,7 +50,7 @@ why this guide lives in `docs/` rather than in `rules/` itself.
 | advisory · scoped to a file-type/area | **`.claude/rules/` + `paths:`** | declarative, automatic, off-budget until a matching file is touched |
 | procedural ("how to do task Y") | **a skill** (`.claude/skills/`) | model-invoked by description; carries process steps |
 | must hold regardless of what the model decides | **a hook** (`.claude/hooks/`) | deterministic; survives `--dangerously-skip-permissions` |
-| deep reference (architecture, glossary, decisions) | **`agent_docs/`** | read on demand when orienting; too big for always-on |
+| deep reference (architecture, glossary, decisions) | **`docs/`** | read on demand when orienting; too big for always-on |
 
 ## Don't
 - **Don't put enforcement here.** A rule that must *hold* (not just be *seen*) is a hook —

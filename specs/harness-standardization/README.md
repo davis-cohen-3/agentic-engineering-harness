@@ -3,7 +3,7 @@
 > Replaced as the execution index by `plan/tasks.md`. It deletes the quality gate (retained), makes `~/agents` canonical (retired), declares worktrees out of scope (they are central), deletes the injection hook (kept), and retains active-spec binding (deleted by DEC-6).
 >
 > **Authority:** `DECISIONS-PENDING.md` → `CONTRACT.md` →
-> `docs/HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md` → `plan/tasks.md`.
+> `HARNESS-DEPOT-OPERATIONAL-DESIGN-REVIEW.md` → `plan/tasks.md`.
 > Retained as provenance and research. Harvest evidence from it; do not run its instructions.
 >
 > *Bannered 2026-08-08.*
@@ -81,7 +81,7 @@ Checks become three tiers, none of them a gate:
   — discipline with **zero** format: step 1 is "IDENTIFY: what command proves this claim?"
 
 **In-repo:**
-- `docs/ARCHITECTURE-REVIEW-2026-07.md` §C and §D — already flagged both the floor bloat and the
+- `research/ARCHITECTURE-REVIEW-2026-07.md` §C and §D — already flagged both the floor bloat and the
   no-op gate, and left "Should an unconfigured `make check` fail, warn-and-pass, or be replaced?"
   as an open question. This epic answers it.
 - `docs/OVERLAY-CONTRACT.md` — slots 2 and 4 are the two being removed.

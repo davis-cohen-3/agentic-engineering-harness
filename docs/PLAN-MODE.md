@@ -2,9 +2,10 @@
 
 > **Design narrative, not agent-loaded context.** This explains *why* the plan/build split
 > exists; it does NOT carry the operational steps. Those live in the skills that travel into
-> every repo (`brainstorm` / `grill-me` / `write-plan` + the DoR they enforce), in
+> every repo (`brainstorm` / `grill` / `write-plan` + the DoR they enforce), in
 > `specs/README.md` (lifecycle + right-sizing) and `specs/templates/t2/spec.md` (the fields), and in
-> `.claude/FLOOR.md` (the never-scale-down floor). An agent never needs to read this to plan.
+> the project's own `AGENTS.md` (the never-scale-down rules). An agent never needs to read this
+> to plan.
 
 ## What planning is — aligning the human and the agent
 Planning is the **alignment step between the human engineer and the coding agent**: it turns
@@ -25,9 +26,9 @@ you can't fix a misaligned autonomous run mid-flight.
 ## The alignment funnel: rough → sharp → formal
 Three skills converge intent into a hand-off spec, each tightening the last:
 - **`brainstorm`** (diverge) — ideate on *what we actually want* and *which approach*, capturing
-  the journey (ideas, constraints, rejected options) in `thoughts.md`. Output ≈ a **rough PRD**:
+  the journey (ideas, constraints, rejected options) in `.workspace/LOG.md`. Output ≈ a **rough PRD**:
   the problem + the chosen direction.
-- **`grill-me`** (converge) — interview you relentlessly until that rough synthesis is nailed
+- **`grill`** (converge) — interview you relentlessly until that rough synthesis is nailed
   down: every branch resolved, every ambiguity killed.
 - **`write-plan`** (formalize) — synthesize the thread into the committed spec the build run
   executes.
@@ -40,9 +41,9 @@ Everything below is a consequence of the governing principle.
 ## The four decisions
 
 **1. One harness, two modes — not two harnesses.** Plan and build SHARE the expensive stuff
-(stack facts, structure map, conventions, hotspots, the gate = `CLAUDE.md`) and differ only in
+(stack facts, structure map, conventions, hotspots, the gate = `AGENTS.md`) and differ only in
 cheap stuff (which skills load, interactive vs autonomous posture). Forking into two
-`CLAUDE.md`s would let them drift — the same single-source reason `/ship` delegates to
+`AGENTS.md`s would let them drift — the same single-source reason `/ship` delegates to
 `open-a-pr`. So: one base config, mode = which skills + which run type. (Split only if planning
 ever lives in a physically separate repo from the code; it doesn't here.)
 
@@ -63,7 +64,7 @@ risk-review.
 (The T0–T3 tier ladder and the triage front-door that route on this live in
 `specs/README.md` → Right-sizing. The invariant that keeps right-sizing ≠ corner-cutting:
 you may skip the *planning*, never *"done."* The three that never scale down — gate ·
-risk-review · verify-before-done — are owned by the `CLAUDE.md` floor.)
+risk-review · verify-before-done — are owned by the project's `AGENTS.md`.)
 
 **4. The Definition of Ready is the planning twin of the quality gate.** Build has a quality
 gate ("is the code done?" → `make check`); plan has the mirror, a Definition of Ready ("is the
@@ -75,7 +76,7 @@ source, can't drift); a build run hard-stops on any design gap, so an unresolved
 ## The bookends
 Your judgment lives in the two ends of the workday — **architecting the spec** (plan) and
 **reviewing the branch** (build output); the middle is the machine. Each mode has a gate that
-defines "done" for that mode (the `CLAUDE.md` Definition-of-done principle, applied twice):
+defines "done" for that mode (the `AGENTS.md` Definition-of-done principle, applied twice):
 plan → Definition of Ready → a spec with the design RESOLVED; build → `make check` → a branch
 with the design EXECUTED. The spec is the handoff between them.
 

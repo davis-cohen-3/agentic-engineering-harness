@@ -3,13 +3,13 @@
 A running log of behaviors we keep seeing in coding agents, and how this harness
 tries to mitigate each over time. Harness-author space — **does NOT travel** into
 adopting repos (it lives in `docs/`). This is the *why* behind several hooks and
-FLOOR rules; mitigations link back here.
+always-on profile rules; mitigations link back here.
 
 How to use it: when you notice the agent doing something wrong *again*, add (or
 sharpen) a row. A pattern earns a **mechanism** only once it's demonstrably
 forgotten despite being written down — otherwise it stays guidance. Mechanism
 choice follows `docs/recommended/hooks.md`: silent/expensive/keep-reminding → a
-hook; judgment-only posture → a reminder; everything else → FLOOR/rules.
+hook; judgment-only posture → a reminder; everything else → the profile / path-scoped rules.
 
 ## Status legend
 ✅ mitigated · 🟡 partial · ⬜ open (tracked, not yet addressed) · 🧭 by-design (handled elsewhere, e.g. planning)
@@ -18,12 +18,12 @@ hook; judgment-only posture → a reminder; everything else → FLOOR/rules.
 
 | # | Observed behavior | Mechanism | Where | Status |
 |---|---|---|---|---|
-| 1 | Over-adds fallbacks / defensive code I didn't ask for | candidate FLOOR/rule line | — | ⬜ |
-| 2 | Verbose comments / docs (explains the *what*) | FLOOR "minimal comments" + comment-bloat habit hook | `FLOOR.md`, `.claude/hooks/flag-comment-bloat.sh` | ✅ |
+| 1 | Over-adds fallbacks / defensive code I didn't ask for | candidate profile/rule line | — | ⬜ |
+| 2 | Verbose comments / docs (explains the *what*) | profile "minimal comments" + comment-bloat habit hook | `AGENTS.md`, `.claude/hooks/flag-comment-bloat.sh` | ✅ |
 | 3 | Reinvents logic the codebase already has | resolved during planning (scope/reuse) | `write-plan` skill, `scout` agent | 🧭 |
-| 4 | Picks the complex/sophisticated build over simple+effective | candidate FLOOR/rule line | — | ⬜ |
-| 5 | Implements/tests or does more than asked, unprompted | plan-vs-build mode + collab reminder (🛤️ no course change w/o permission) | `FLOOR.md`, `.claude/hooks/collab-reminders.sh` | 🟡 |
-| 6 | Spreads scope / loads many domains → context "clouding" | FLOOR "one run, one task" | `FLOOR.md` | 🟡 |
+| 4 | Picks the complex/sophisticated build over simple+effective | candidate profile/rule line | — | ⬜ |
+| 5 | Implements/tests or does more than asked, unprompted | plan-vs-build mode + collab reminder (🛤️ no course change w/o permission) | `AGENTS.md`, `.claude/hooks/collab-reminders.sh` | 🟡 |
+| 6 | Spreads scope / loads many domains → context "clouding" | profile "one run, one task" | `AGENTS.md` | 🟡 |
 | 7 | Writes too much for me to read; not concise | none yet (kept out of the collab hook by choice) | candidate: personal `~/.claude` or a reminder line | ⬜ |
 
 ## Collaboration postures we now inject (from `collab-reminders.sh`, lexler-pattern)
