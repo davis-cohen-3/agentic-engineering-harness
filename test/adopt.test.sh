@@ -120,5 +120,51 @@ grep -q '"hooks": {}' "$T/.claude/settings.json" && ok "settings.json not clobbe
 echo "refuses to adopt itself"
 "$REPO/core/skills/adopt-harness/copy.sh" "$REPO" >/dev/null 2>&1 && no "adopted itself" || ok "refuses self-adoption"
 
+echo "the adoption version stamp (decision O)"
+[ -f "$T/.claude/harness-version" ] && ok "stamp written at .claude/harness-version" || no "no stamp"
+[ "$(head -1 "$T/.claude/harness-version")" = "$(git -C "$REPO" rev-parse HEAD)" ] \
+  && ok "records the harness source commit" || no "stamp does not match the harness HEAD"
+"$REPO/core/skills/adopt-harness/copy.sh" --check "$T" >"$SB/chk" 2>&1
+[ $? -eq 0 ] && grep -q 'up to date' "$SB/chk" && ok "--check: up to date, exit 0" || no "--check wrong on a fresh adoption: $(cat "$SB/chk")"
+
+echo "staleness is measured, not guessed — against a harness that moves ahead"
+# The real repo's history cannot be advanced by a test, so the stamp/check pair runs against a
+# disposable mini-harness whose HEAD the test controls.
+MH="$SB/mini-harness"
+mkdir -p "$MH/core/skills/adopt-harness"
+cp -R "$REPO/adopt" "$MH/adopt"
+cp "$REPO/core/skills/adopt-harness/copy.sh" "$MH/core/skills/adopt-harness/copy.sh"
+git -C "$MH" init -q && git -C "$MH" config user.email t@t && git -C "$MH" config user.name t
+git -C "$MH" add -A && git -C "$MH" commit -qm v1
+MCP="$MH/core/skills/adopt-harness/copy.sh"
+T2="$SB/target2"; mkdir -p "$T2" && git -C "$T2" init -q
+"$MCP" "$T2" none >/dev/null 2>&1 || no "mini adoption failed"
+"$MCP" --check "$T2" >"$SB/chk" 2>&1
+[ $? -eq 0 ] && ok "in step with the mini-harness: exit 0" || no "false staleness right after adoption"
+git -C "$MH" commit -qm v2 --allow-empty && git -C "$MH" commit -qm v3 --allow-empty
+"$MCP" --check "$T2" >"$SB/chk" 2>&1
+rc=$?
+[ "$rc" -eq 1 ] && ok "behind: exit 1" || no "behind not signalled (exit $rc)"
+grep -q '2 commit(s) behind' "$SB/chk" && ok "counts exactly how far behind" || no "wrong count: $(cat "$SB/chk")"
+grep -q 'upgrade path' "$SB/chk" && ok "points at re-adoption as the upgrade path" || no "no upgrade pointer"
+"$MCP" "$T2" none >/dev/null 2>&1
+"$MCP" --check "$T2" >"$SB/chk" 2>&1
+[ $? -eq 0 ] && ok "re-adoption refreshed the stamp — the upgrade path closes the gap" || no "re-adoption left a stale stamp"
+rm -f "$T2/.claude/harness-version"
+"$MCP" --check "$T2" >"$SB/chk" 2>&1
+rc=$?
+[ "$rc" -eq 2 ] && grep -q 'no .claude/harness-version' "$SB/chk" && ok "no stamp: exit 2, says so" \
+  || no "missing stamp not reported (exit $rc): $(cat "$SB/chk")"
+
+echo "a harness copy without git history still adopts — it just cannot stamp"
+NH="$SB/nogit-harness"
+mkdir -p "$NH/core/skills/adopt-harness"
+cp -R "$REPO/adopt" "$NH/adopt"
+cp "$REPO/core/skills/adopt-harness/copy.sh" "$NH/core/skills/adopt-harness/copy.sh"
+T3="$SB/target3"; mkdir -p "$T3" && git -C "$T3" init -q
+"$NH/core/skills/adopt-harness/copy.sh" "$T3" none >"$SB/out3" 2>&1 && ok "adoption still exits 0" || no "no-git adoption failed"
+[ -e "$T3/.claude/harness-version" ] && no "stamped from thin air" || ok "no stamp invented"
+grep -q 'no version stamp' "$SB/out3" && ok "and the run says so" || no "silent about the missing stamp"
+
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
