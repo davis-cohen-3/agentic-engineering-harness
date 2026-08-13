@@ -37,20 +37,45 @@ CFG="${XDG_CONFIG_HOME:-$HOME/.config}"
 REGISTRY="$CFG/agents/projects.yaml"
 [ -f "$REGISTRY" ] || REGISTRY="$CFG/depot/projects.yaml"
 
-# Depot already requires Python, so reading its own YAML with Python adds no machine dependency.
+# The registry is a hand-edited, shallow map (project -> {repo, worktree_root}); parse that subset
+# with the stdlib so wt carries no PyYAML dependency. migrate-registry.py already reads it the same
+# line-based way — one shape, and a Homebrew python bump can no longer silently strand wt on a
+# fresh machine (a missing PyYAML used to surface as a bogus "no project" error).
 registry_lookup() {  # $1 = key ("name" or "repo"), $2 = value → "repo<TAB>worktree_root"
   [ -f "$REGISTRY" ] || return 1
   python3 - "$REGISTRY" "$1" "$2" <<'PY' 2>/dev/null
-import os,sys,yaml
-path,key,want = sys.argv[1],sys.argv[2],sys.argv[3]
-def ex(p): return os.path.realpath(os.path.expanduser(p)) if p else p
-with open(path) as f: doc = yaml.safe_load(f) or {}
-for name, p in (doc.get("projects") or {}).items():
-    if not isinstance(p, dict): continue
-    if (key == "name" and name == want) or (key == "repo" and ex(p.get("repo","")) == want):
-        repo = os.path.expanduser(p.get("repo","") or "")
-        wr   = os.path.expanduser(p.get("worktree_root","") or "")
-        print(f"{repo}\t{wr}"); sys.exit(0)
+import os, sys
+path, key, want = sys.argv[1], sys.argv[2], sys.argv[3]
+
+def clean(v):
+    i = v.find(" #")                          # inline comment, then surrounding quotes/space
+    if i != -1: v = v[:i]
+    v = v.strip()
+    if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'": v = v[1:-1]
+    return v
+
+projects, cur, in_block, pind = {}, None, False, None
+for raw in open(path):
+    line = raw.rstrip("\n"); s = line.strip()
+    if not s or s.startswith("#"): continue
+    ind = len(line) - len(line.lstrip(" "))
+    if not in_block:
+        if ind == 0 and s.rstrip() == "projects:": in_block = True
+        continue
+    if ind == 0: break                        # the next top-level key ends the projects block
+    if pind is None: pind = ind
+    if ind == pind:
+        cur = s.split(":", 1)[0].strip(); projects[cur] = {}
+    elif cur is not None and ":" in s:
+        k, v = s.split(":", 1)
+        if k.strip() in ("repo", "worktree_root"): projects[cur][k.strip()] = clean(v)
+
+def real(p): return os.path.realpath(os.path.expanduser(p)) if p else p
+for name, p in projects.items():
+    repo = p.get("repo", "") or ""
+    if (key == "name" and name == want) or (key == "repo" and real(repo) == want):
+        print(f'{os.path.expanduser(repo)}\t{os.path.expanduser(p.get("worktree_root","") or "")}')
+        sys.exit(0)
 sys.exit(1)
 PY
 }
