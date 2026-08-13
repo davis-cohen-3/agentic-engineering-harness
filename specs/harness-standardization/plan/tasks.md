@@ -268,6 +268,9 @@ swap directories the providers read.
 
 ### The machine steps
 
+The command / verify / rollback sequence for these rows is [`WAVE-1A-RUNBOOK.md`](./WAVE-1A-RUNBOOK.md).
+This table stays the authority for *what and why*; the runbook is the *how* for the live session.
+
 | # | Task | Note |
 | --- | --- | --- |
 | T1.1 | `~/.config/git/ignore` += `.workspace/` | ✅ **DONE 2026-08-09**, pulled forward out of wave order on the developer's instruction — Wave 0 proved that until it landed, any `git add -A` in a worktree committed task memory and propagated it to every worktree cut afterwards. Verified: `.workspace/` is ignored and survives `git add -A`. Backup at `~/.config/git/ignore.pre-workspace.bak` |
