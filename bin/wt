@@ -37,6 +37,19 @@ CFG="${XDG_CONFIG_HOME:-$HOME/.config}"
 REGISTRY="$CFG/agents/projects.yaml"
 [ -f "$REGISTRY" ] || REGISTRY="$CFG/depot/projects.yaml"
 
+# registry_lookup runs python3 under `2>/dev/null`, which is right for a miss and wrong for a
+# broken interpreter: an ImportError comes back as "no such project" and sends you to edit a
+# registry that is already correct. Check the parser once, here, so the real cause is named.
+# Guarded on the registry existing: with no registry nothing is parsed, and wt still resolves
+# <container>/worktrees without python at all.
+if [ -f "$REGISTRY" ]; then
+  command -v python3 >/dev/null \
+    || die "python3 not found, so $REGISTRY cannot be read (move it aside to run registry-free)"
+  python3 -c 'import yaml' 2>/dev/null || die "python3 cannot import yaml, so $REGISTRY cannot be read.
+    install it:  pip3 install --break-system-packages pyyaml
+    a python major upgrade drops site-packages and causes exactly this"
+fi
+
 # Depot already requires Python, so reading its own YAML with Python adds no machine dependency.
 registry_lookup() {  # $1 = key ("name" or "repo"), $2 = value → "repo<TAB>worktree_root"
   [ -f "$REGISTRY" ] || return 1

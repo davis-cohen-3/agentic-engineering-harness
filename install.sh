@@ -374,6 +374,12 @@ if [ -f "$REPO/bin/wt" ]; then
     say "  installed → $BIN_DIR/workspace-record"
   fi
   case ":$PATH:" in *":$BIN_DIR:"*) ;; *) say "  ⚠ $BIN_DIR is not on PATH" ;; esac
+  # wt parses the YAML registry with python3+PyYAML. A warning, not a die: wt resolves
+  # <container>/worktrees without either, so this only costs the `wt <project>` form.
+  if ! python3 -c 'import yaml' 2>/dev/null; then
+    say "  ⚠ python3 cannot import yaml — \`wt <project>\` cannot read the registry"
+    say "    pip3 install --break-system-packages pyyaml"
+  fi
 else
   say "  ✗ $REPO/bin/wt not found — skipped"
 fi

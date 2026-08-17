@@ -107,6 +107,31 @@ wt demo --branch viaregistry >"$SB/o" 2>&1; is "exits 0" "$?" 0
 # rather than falling back to <container>/worktrees.
 rm -f "$XDG_CONFIG_HOME/agents/projects.yaml"
 
+echo "wt — a missing PyYAML reads as a dependency error, not 'no such project'"
+# registry_lookup ran python3 under `2>/dev/null`, so an ImportError was indistinguishable from
+# a miss: wt reported "no project 'demo'" and sent you to edit a registry that was already
+# correct. A Homebrew python major bump drops site-packages and triggers exactly this.
+cat >"$XDG_CONFIG_HOME/agents/projects.yaml" <<YAML
+projects:
+  demo:
+    repo: $SB/proj
+    worktree_root: $SB/registry-root
+YAML
+mkdir -p "$SB/noyaml" && printf 'raise ImportError("stubbed out for this test")\n' >"$SB/noyaml/yaml.py"
+( cd "$SB/proj" && PYTHONPATH="$SB/noyaml" "$WT" demo --branch depmissing ) >"$SB/o" 2>&1
+is "exits non-zero" "$?" 1
+grep -qiE 'pyyaml|import yaml' "$SB/o" && ok "names the missing dependency" \
+  || no "does not name the dependency: $(cat "$SB/o")"
+grep -qi 'no project' "$SB/o" && no "still blames the registry" || ok "does not blame the registry"
+[ -d "$SB/registry-root/depmissing" ] && no "cut a worktree despite the failure" \
+  || ok "cuts nothing when the dependency is missing"
+
+# Without a registry there is nothing to parse, so the default <container>/worktrees path must
+# keep working even with yaml unimportable — the dependency is the registry's, not wt's.
+rm -f "$XDG_CONFIG_HOME/agents/projects.yaml"
+( cd "$SB/proj" && PYTHONPATH="$SB/noyaml" "$WT" --branch noyamlnoreg ) >"$SB/o" 2>&1
+is "registry-free wt still works without yaml" "$?" 0
+
 echo "workspace-record (T0.9) — atomic, never overwrites"
 WR="$REPO/bin/workspace-record"
 ( cd "$SB/proj" && for i in $(seq 40); do "$WR" handoff race >/dev/null 2>&1 & done; wait )
