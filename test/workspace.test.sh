@@ -24,6 +24,23 @@ ok() { pass=$((pass+1)); printf '  ✓ %s\n' "$1"; }
 no() { fail=$((fail+1)); printf '  ✗ %s\n' "$1"; }
 is() { [ "$2" = "$3" ] && ok "$1" || no "$1 (got '$2', want '$3')"; }
 
+# Section-aware membership on the shallow registry, stdlib-only — no PyYAML, so the suite does not
+# reacquire the dependency wt just shed (a Homebrew python bump dropped PyYAML and turned this into
+# a cryptic ModuleNotFoundError across the gate). reg_has <file> <section> <key>.
+reg_has() {
+  python3 - "$1" "$2" "$3" <<'PY'
+import sys
+f, sect, key = sys.argv[1], sys.argv[2], sys.argv[3]
+cur = None
+for raw in open(f):
+    line = raw.rstrip("\n"); s = line.strip()
+    if not s or s.startswith("#"): continue
+    if line[:1] not in (" ", "\t"): cur = s.split(":", 1)[0].strip()
+    elif cur == sect and s.split(":", 1)[0].strip() == key: sys.exit(0)
+sys.exit(1)
+PY
+}
+
 echo "T0.7 — ensure-workspace.sh and wt"
 
 # ── a disposable repo with a real origin
@@ -157,8 +174,9 @@ is "source registry untouched" "$(shasum -a 256 "$SB/depot-registry.yaml" | cut 
 grep -q 'a comment that must survive' "$SB/config/agents/projects.yaml" && ok "comments preserved" || no "comments lost"
 grep -q 'inline comment' "$SB/config/agents/projects.yaml" && ok "inline comments preserved" || no "inline comments lost"
 grep -q '^  depot:' "$SB/config/agents/projects.yaml" && ok "the depot project is added" || no "depot not added"
-python3 -c "import yaml,sys; d=yaml.safe_load(open('$SB/config/agents/projects.yaml')); assert d['profiles']['claude']; assert d['projects']['depot']" \
-  && ok "migrated file parses as YAML with profiles intact" || no "migrated file does not parse"
+reg_has "$SB/config/agents/projects.yaml" profiles claude \
+  && reg_has "$SB/config/agents/projects.yaml" projects depot \
+  && ok "migrated file keeps profiles.claude and projects.depot" || no "migrated structure wrong"
 wt demo --branch frommigrated >"$SB/o" 2>&1; is "wt resolves a project from the MIGRATED file" "$?" 0
 [ -d "$SB/old-root/frommigrated" ] && ok "wt honoured its worktree_root" || no "wt ignored worktree_root"
 "$REPO/install/migrate-registry.py" "$SB/depot-registry.yaml" "$SB/config/agents/projects.yaml" >"$SB/o" 2>&1
@@ -174,12 +192,8 @@ echo "registry migration — the transform refuses a shape it cannot safely edit
 # guard, testing that instead.
 printf 'projects:\n  fixture:\n    repo: /tmp/fixture-repo\n    worktree_root: /tmp/old\nprofiles:\n  claude:\n    launch: c\n' >"$SB/notlast.yaml"
 "$REPO/install/migrate-registry.py" "$SB/notlast.yaml" "$SB/notlast.out" >/dev/null 2>&1
-python3 - "$SB/notlast.out" <<'PY' && ok "depot lands INSIDE projects: even when projects: is not last" || no "depot landed under the wrong key"
-import yaml,sys
-d=yaml.safe_load(open(sys.argv[1]))
-assert "depot" in d["projects"], d["projects"]
-assert "claude" in d["profiles"], d
-PY
+reg_has "$SB/notlast.out" projects depot && reg_has "$SB/notlast.out" profiles claude \
+  && ok "depot lands INSIDE projects: even when projects: is not last" || no "depot landed under the wrong key"
 printf 'projects:\n  a:\n    worktree_root: ~/x\n' >"$SB/norepo.yaml"
 "$REPO/install/migrate-registry.py" "$SB/norepo.yaml" "$SB/norepo.out" >"$SB/o" 2>&1
 is "refuses a worktree_root with no preceding repo:" "$?" 1
