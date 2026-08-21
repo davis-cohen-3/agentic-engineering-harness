@@ -359,5 +359,40 @@ out4="$( cd "$fresh" && "$OR" 2>/dev/null )"
 echo "$out4" | grep -q 'does not exist' && ok "reports an absent spec without repairing it" || no "did not report absent spec"
 grep -q 'specs/gone.md' "$fresh/.workspace/MISSION.md" && ok "left the mission untouched" || no "rewrote the mission"
 
+echo "route-worktree.sh — Claude-created worktrees obey the <container>/worktrees layout"
+RW="$REPO/adopt/hooks/route-worktree.sh"
+RWC="$SB/proj"; mkdir -p "$RWC/code"
+RWC="$(cd "$RWC" && pwd -P)"   # git reports physical paths; compare on the same footing
+git -C "$RWC/code" init -q -b main
+git -C "$RWC/code" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+printf '{"name":"task-a"}' >"$SB/rw-in.json"
+out="$(cd "$RWC/code" && "$RW" <"$SB/rw-in.json" 2>"$SB/rw-err")"
+rc=$?
+is "hook exits 0 and prints ONLY the path on stdout" "$rc:$out" "0:$RWC/worktrees/task-a"
+[ -d "$RWC/worktrees/task-a" ] && ok "worktree lands in <container>/worktrees/, not .claude/worktrees/" \
+  || no "worktree not at $RWC/worktrees/task-a"
+[ "$(git -C "$RWC/worktrees/task-a" branch --show-current)" = "worktree-task-a" ] \
+  && ok "branch follows Claude's worktree-<name> convention" || no "unexpected branch name"
+[ -f "$RWC/worktrees/task-a/.workspace/MISSION.md" ] && ok "the worktree got its .workspace/" \
+  || no ".workspace/ missing in routed worktree"
+
+out2="$(cd "$RWC/worktrees/task-a" && "$RW" <<<'{"name":"task-b"}' 2>/dev/null)"
+is "cut FROM a worktree, the next one still lands in the project's worktrees/" \
+   "$out2" "$RWC/worktrees/task-b"
+
+out3="$(cd "$RWC/code" && "$RW" <"$SB/rw-in.json" 2>/dev/null)"; rc3=$?
+is "an existing name is REUSED, not recreated" "$rc3:$out3" "0:$RWC/worktrees/task-a"
+
+echo 'IGNORED=1' >"$RWC/code/.env"
+printf '.env\n' >"$RWC/code/.gitignore"
+printf '.env\n' >"$RWC/code/.worktreeinclude"
+out4="$(cd "$RWC/code" && "$RW" <<<'{"name":"task-c"}' 2>/dev/null)"
+grep -q 'IGNORED=1' "$RWC/worktrees/task-c/.env" 2>/dev/null \
+  && ok ".worktreeinclude files are carried (the hook replaces the built-in copy)" \
+  || no ".worktreeinclude file not carried into the worktree"
+
+(cd "$SB" && "$RW" <<<'{"name":"x"}' >/dev/null 2>&1) && no "created a worktree outside any git repo" \
+  || ok "outside a git repo: non-zero, creation fails the way the default would"
+
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

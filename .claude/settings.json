@@ -68,6 +68,16 @@
           }
         ]
       }
+    ],
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/adopt/hooks/route-worktree.sh"
+          }
+        ]
+      }
     ]
   }
 }

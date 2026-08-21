@@ -289,7 +289,9 @@ core/                      → ~/.agents/
 adopt/                     → a target repo
   AGENTS.template.md       → AGENTS.md — THE profile (see L)
   CLAUDE.template.md       → CLAUDE.md — a stub that @AGENTS.md
-  hooks/                   → .claude/hooks/ — one copy, two bindings (see K)
+  hooks/                   → .claude/hooks/ — one copy, two bindings (see K); exception:
+                             route-worktree.sh is Claude-only (Codex has no WorktreeCreate
+                             event and no observable worktree-placement knob)
   settings.json            → .claude/settings.local.json (Claude binding — MERGED, keyed by
                              event+script; the team's settings.json is read for dedup, never written)
   codex/hooks.json         → .codex/hooks.json       (Codex binding — MERGED the same way)
@@ -298,9 +300,12 @@ adopt/                     → a target repo
 ```
 
 ⚠ **Amended by decision K.** The six safety hooks and `spec-session-orient.sh` are **repo-owned**,
-not machine-installed: `$(git rev-parse --show-toplevel)` only resolves if the scripts are inside
-the repo, so hooks cannot both live at `~/.agents/hooks/` and be bound that way. `adopt/` carries
-them. `inject-global-rules.sh` stays machine-level because it exists to fire *outside* projects.
+not machine-installed: the binding resolves them from inside the repo, so hooks cannot both live
+at `~/.agents/hooks/` and be bound that way. `adopt/` carries them. Both providers bind via
+`$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/hooks/` — the MAIN checkout,
+never the session root: Claude shares settings across worktrees through the main checkout while
+the untracked scripts do not travel, so a session-root form (`$CLAUDE_PROJECT_DIR`, `--show-toplevel`)
+dangles in every worktree (observed live in smoke's Conductor workspaces, 2026-08-21). `inject-global-rules.sh` stays machine-level because it exists to fire *outside* projects.
 Machine-wide registration of the safety hooks is deferred, so Wave 1 T1.8 is descoped.
 Also, a repo never carries a second copy of its profile — see decision L.
 

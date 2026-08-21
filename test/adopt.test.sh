@@ -34,12 +34,12 @@ hasnt ".claude/settings.json"     "no .claude/settings.json is created — that 
 has ".claude/hooks/protect-secrets.sh" "hook scripts landed at .claude/hooks/"
 [ -x "$T/.claude/hooks/protect-secrets.sh" ] && ok "hooks are executable" || no "hooks not executable"
 python3 - "$T" <<'PY' && ok "every Claude hook binding resolves to a real file" || no "a Claude hook binding is dangling"
-import json,sys,os
+import json,sys,os,subprocess
 t=sys.argv[1]; d=json.load(open(f"{t}/.claude/settings.local.json"))
 for ev in d["hooks"].values():
     for g in ev:
         for h in g["hooks"]:
-            p=h["command"].replace("$CLAUDE_PROJECT_DIR",t)
+            p=subprocess.check_output(["bash","-c",'echo '+h["command"]],cwd=t,text=True).strip()
             assert os.path.isfile(p), p
 PY
 
@@ -50,8 +50,9 @@ has ".codex/hooks.json"   ".codex/hooks.json written"
 [ -d "$T/.agents/skills" ] && ok ".agents/skills resolves to a directory" || no ".agents/skills dangles"
 [ "$(cd "$T/.agents/skills" && pwd -P)" = "$(cd "$T/.claude/skills" && pwd -P)" ] \
   && ok ".agents/skills and .claude/skills are the same directory" || no "symlink points elsewhere"
-grep -q 'git rev-parse --show-toplevel' "$T/.codex/hooks.json" \
-  && ok "Codex bindings resolve from the repo root, not cwd or an absolute path" || no "Codex bindings not repo-root-resolved"
+grep -q 'git rev-parse --path-format=absolute --git-common-dir' "$T/.codex/hooks.json" \
+  && ok "Codex bindings resolve to the MAIN checkout (worktree-safe), not cwd or an absolute path" \
+  || no "Codex bindings not main-checkout-resolved"
 # Per-matcher, not a whole-file grep: the comment-bloat group also contains the word apply_patch,
 # so a file-wide match stays green while protect-secrets' own matcher loses it — which is exactly
 # the CONTRACT §5 failure mode (the guard never runs on a Codex edit, and nothing says so).
@@ -69,13 +70,30 @@ PY
 python3 - "$T" <<'PY' && ok "every Codex hook binding resolves to a real file" || no "a Codex hook binding is dangling"
 import json,sys,os,subprocess
 t=sys.argv[1]; d=json.load(open(f"{t}/.codex/hooks.json"))
-root=subprocess.check_output(["git","-C",t,"rev-parse","--show-toplevel"],text=True).strip()
 for ev in d["hooks"].values():
     for g in ev:
         for h in g["hooks"]:
-            p=h["command"].replace('"$(git rev-parse --show-toplevel)"',root).strip('"')
+            p=subprocess.check_output(["bash","-c",'echo '+h["command"]],cwd=t,text=True).strip()
             assert os.path.isfile(p), p
 PY
+
+echo "bindings survive a WORKTREE — settings are shared through the main checkout, scripts are not"
+# The worktree is cut from the pre-adoption commit: untracked payload does NOT travel.
+WT="$SB/target-wt"
+git -C "$T" worktree add -q "$WT" -b wt-branch 2>/dev/null || no "could not cut a worktree"
+[ -e "$WT/.claude/hooks/protect-secrets.sh" ] && no "hook scripts unexpectedly travelled into the worktree" \
+  || ok "worktree has no hook scripts of its own (the failure the binding form must survive)"
+python3 - "$T" "$WT" <<'PY' && ok "every binding resolved FROM the worktree hits the MAIN checkout's script" || no "a binding dangles when resolved from a worktree"
+import json,sys,os,subprocess
+t,wt=sys.argv[1],sys.argv[2]
+for f in (f"{t}/.claude/settings.local.json", f"{t}/.codex/hooks.json"):
+    for ev in json.load(open(f))["hooks"].values():
+        for g in ev:
+            for h in g["hooks"]:
+                p=subprocess.check_output(["bash","-c",'echo '+h["command"]],cwd=wt,text=True).strip()
+                assert os.path.isfile(p) and os.path.realpath(p).startswith(os.path.realpath(t)), (f,p)
+PY
+git -C "$T" worktree remove -f "$WT" >/dev/null 2>&1
 
 echo "SessionStart ordering is load-bearing"
 python3 - "$T" <<'PY' && ok "ensure-workspace precedes orientation in BOTH providers" || no "orientation would run before the initialiser"
@@ -156,6 +174,21 @@ cp "$T5/.claude/settings.local.json" "$SB/m1"; cp "$T5/.codex/hooks.json" "$SB/m
 "$REPO/core/skills/adopt-harness/copy.sh" "$T5" none >/dev/null 2>&1
 cmp -s "$SB/m1" "$T5/.claude/settings.local.json" && cmp -s "$SB/m2" "$T5/.codex/hooks.json" \
   && ok "the merge is idempotent — a re-run changes neither binding file" || no "re-run mutated a binding file"
+python3 - "$T5" <<'PY'
+import json,sys
+p=f"{sys.argv[1]}/.claude/settings.local.json"; d=json.load(open(p))
+for gs in d["hooks"].values():
+    for g in gs:
+        for h in g["hooks"]:
+            if "collab-reminders" in h["command"]:
+                h["command"]="$CLAUDE_PROJECT_DIR/.claude/hooks/collab-reminders.sh"
+json.dump(d,open(p,"w"),indent=2)
+PY
+"$REPO/core/skills/adopt-harness/copy.sh" "$T5" none >"$SB/out6" 2>&1
+grep -q 'updated 1 stale command' "$SB/out6" && ok "a stale command form in OUR file is upgraded in place" \
+  || no "stale command not upgraded: $(grep 'settings.local' "$SB/out6")"
+grep -q 'CLAUDE_PROJECT_DIR' "$T5/.claude/settings.local.json" && no "old command form survived the upgrade" \
+  || ok "no stale form left behind"
 
 echo "the doctor verifies activation (P2) — no ✅ on faith"
 grep -q '✅ harness copied and verified active' "$SB/out5" && ok "✅ only after the doctor passes" || no "✅ printed without verification"
