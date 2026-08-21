@@ -289,7 +289,9 @@ core/                      → ~/.agents/
 adopt/                     → a target repo
   AGENTS.template.md       → AGENTS.md — THE profile (see L)
   CLAUDE.template.md       → CLAUDE.md — a stub that @AGENTS.md
-  hooks/                   → .claude/hooks/ — one copy, two bindings (see K)
+  hooks/                   → .claude/hooks/ — one copy, two bindings (see K); exception:
+                             route-worktree.sh is Claude-only (Codex has no WorktreeCreate
+                             event and no observable worktree-placement knob)
   settings.json            → .claude/settings.local.json (Claude binding — MERGED, keyed by
                              event+script; the team's settings.json is read for dedup, never written)
   codex/hooks.json         → .codex/hooks.json       (Codex binding — MERGED the same way)

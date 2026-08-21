@@ -20,6 +20,10 @@ before touching code. In a monorepo, name the sub-projects and where each lives.
   `make/gate.mk`). Never hand-roll the steps; the gate is the single source of "done".
 - **Bootstrap a fresh clone/worktree:** `make setup` — installs deps + provisions env so the
   gate and the app work in a fresh checkout. <FILL: note any manual prerequisite (e.g. `.env`).>
+- **Cut a worktree:** `wt <project> --branch <b>` — never raw `git worktree add`. Every
+  worktree lives in `<container>/worktrees/`; `wt` (and the WorktreeCreate hook, for
+  worktrees Claude cuts itself) puts it there, runs `make setup`, and creates `.workspace/`.
+  A relative `git worktree add` from inside a worktree lands somewhere nothing tracks.
 
 ## Conventions (enforced here)
 <FILL: the few repo-specific conventions that shape how code is written here and aren't already
