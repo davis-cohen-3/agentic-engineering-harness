@@ -31,8 +31,10 @@ This session runs IN the target repo, pointed at a local clone of the harness (e
 `.agents/skills → .claude/skills` symlink Codex needs to see project skills.
 
 **Re-running is safe.** Scaffolding is copied every time; anything a repo fills in —
-`CLAUDE.md`, `AGENTS.md`, `make/gate.mk`, and both binding files — is written only when
-absent and skipped with a notice otherwise.
+`CLAUDE.md`, `AGENTS.md`, `make/gate.mk` — is written only when absent and skipped with a
+notice otherwise. Hook **bindings** are different: they MERGE (keyed by event + script),
+so a repo's own hooks survive and the harness hooks are always added — a pre-existing
+binding file never silently disables governance. Re-running also repairs lost bindings.
 
 ## 2. Scout this repo (subagents — don't read it all yourself)
 You're already in the target, so `scout` runs against it natively (no `git -C` needed).
@@ -62,6 +64,9 @@ scout didn't find — flag gaps instead.
 - Confirm the copied tree is clean: no `recommended/` catalogs, no `adopt-harness/`, no retired
   spec companions (`*.context.md`, `spec.thoughts.md`, `spec.sessions/`); `AGENTS.md` is the
   filled profile and `CLAUDE.md` only imports it.
-- Confirm BOTH providers can see it: `.agents/skills` resolves to `.claude/skills`, and every
-  command in `.claude/settings.json` and `.codex/hooks.json` points at a file that exists.
+- Confirm BOTH providers can see it: `.agents/skills` resolves to `.claude/skills`, and the
+  doctor is green — `copy.sh` runs it automatically (no ✅ without it), and it can be re-run
+  any time: `<harness-path>/core/skills/adopt-harness/copy.sh --doctor .` — every hook
+  present, bound per provider, and fired clean against a benign payload. If it warns about a
+  missing Codex trust entry, tell the user their next Codex session must accept the hooks.
 - Hand back: what was filled, what the gate ran, any slot left for the user.
