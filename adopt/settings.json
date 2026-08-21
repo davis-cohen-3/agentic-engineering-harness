@@ -6,11 +6,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/block-default-branch-commit.sh"
+            "command": "\"$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/hooks/block-default-branch-commit.sh\""
           },
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/block-dangerous-bash.sh"
+            "command": "\"$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/hooks/block-dangerous-bash.sh\""
           }
         ]
       },
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/protect-secrets.sh"
+            "command": "\"$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/hooks/protect-secrets.sh\""
           }
         ]
       }
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/flag-comment-bloat.sh"
+            "command": "\"$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/hooks/flag-comment-bloat.sh\""
           }
         ]
       }
@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/enforce-gate-on-stop.sh"
+            "command": "\"$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/hooks/enforce-gate-on-stop.sh\""
           }
         ]
       }
@@ -50,11 +50,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/ensure-workspace.sh"
+            "command": "\"$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/hooks/ensure-workspace.sh\""
           },
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/spec-session-orient.sh"
+            "command": "\"$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/hooks/spec-session-orient.sh\""
           }
         ]
       }
@@ -64,7 +64,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/collab-reminders.sh"
+            "command": "\"$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/hooks/collab-reminders.sh\""
           }
         ]
       }
