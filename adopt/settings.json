@@ -68,6 +68,16 @@
           }
         ]
       }
+    ],
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/hooks/route-worktree.sh\""
+          }
+        ]
+      }
     ]
   }
 }

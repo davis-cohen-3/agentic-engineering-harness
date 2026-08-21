@@ -31,6 +31,7 @@ PAYLOADS = {
     "PreToolUse": {"tool_input": {"command": "true", "file_path": "README.md", "content": "hello"}},
     "PostToolUse": {"tool_input": {"command": "true", "file_path": "README.md", "content": "hello"}},
     "Stop": {"session_id": "harness-doctor"},
+    "WorktreeCreate": {"name": "doctor-probe"},
 }
 
 
@@ -93,8 +94,15 @@ def main():
     red = 0
 
     # One scratch repo for every firing: hooks resolve git/make against it, never the target.
-    with tempfile.TemporaryDirectory() as scratch:
+    # It sits INSIDE the temp dir (not at its top) so route-worktree's <container>/worktrees
+    # lands in the cleaned-up area, and it has a commit so a worktree can actually be cut.
+    with tempfile.TemporaryDirectory() as tmp:
+        scratch = os.path.join(tmp, "repo")
         subprocess.run(["git", "init", "-q", scratch], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", scratch, "-c", "user.email=d@d", "-c", "user.name=doctor",
+             "commit", "-q", "--allow-empty", "-m", "init"],
+            check=True, capture_output=True)
         fired = {}  # basename -> (ok, detail); scripts are shared, fire each once
 
         print(f"doctor: hook activation in {target}")
