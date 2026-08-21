@@ -29,12 +29,13 @@ fi
 
 echo "discoverable by Claude"
 has "CLAUDE.md"                  "CLAUDE.md written"
-has ".claude/settings.json"      ".claude/settings.json written"
+has ".claude/settings.local.json" ".claude/settings.local.json written (bindings live in LOCAL, never the team file)"
+hasnt ".claude/settings.json"     "no .claude/settings.json is created — that file belongs to the repo"
 has ".claude/hooks/protect-secrets.sh" "hook scripts landed at .claude/hooks/"
 [ -x "$T/.claude/hooks/protect-secrets.sh" ] && ok "hooks are executable" || no "hooks not executable"
 python3 - "$T" <<'PY' && ok "every Claude hook binding resolves to a real file" || no "a Claude hook binding is dangling"
 import json,sys,os
-t=sys.argv[1]; d=json.load(open(f"{t}/.claude/settings.json"))
+t=sys.argv[1]; d=json.load(open(f"{t}/.claude/settings.local.json"))
 for ev in d["hooks"].values():
     for g in ev:
         for h in g["hooks"]:
@@ -80,7 +81,7 @@ echo "SessionStart ordering is load-bearing"
 python3 - "$T" <<'PY' && ok "ensure-workspace precedes orientation in BOTH providers" || no "orientation would run before the initialiser"
 import json,sys
 t=sys.argv[1]
-for f in (f"{t}/.claude/settings.json", f"{t}/.codex/hooks.json"):
+for f in (f"{t}/.claude/settings.local.json", f"{t}/.codex/hooks.json"):
     cmds=[h["command"] for g in json.load(open(f))["hooks"]["SessionStart"] for h in g["hooks"]]
     i=[n for n,c in enumerate(cmds) if "ensure-workspace" in c]
     j=[n for n,c in enumerate(cmds) if "spec-session-orient" in c]
@@ -115,9 +116,11 @@ grep -q 'FILLED IN' "$T/AGENTS.md"        && ok "AGENTS.md not clobbered"       
 grep -q 'real-checks' "$T/make/gate.mk"   && ok "make/gate.mk not clobbered"    || no "make/gate.mk clobbered"
 [ -L "$T/.agents/skills" ] && ok "the symlink survives re-adoption" || no "symlink broken by re-adoption"
 
-echo "bindings MERGE — the smoke failure mode (P1) cannot recur"
-# Smoke 2026-08-21: .claude/settings.json existed (repo-owned hooks), .codex/hooks.json did
-# not. Fill-once skipped one and created the other — half-governed under a ✅.
+echo "bindings MERGE into settings.local.json — the smoke failure mode (P1) cannot recur"
+# Smoke 2026-08-21: .claude/settings.json existed (tracked, team-owned), .codex/hooks.json did
+# not. Fill-once skipped one and created the other — half-governed under a ✅. The fix: harness
+# Claude bindings live in settings.local.json (untracked), and the team file is NEVER written.
+# The team has already bound protect-secrets itself: the sibling pass must not duplicate it.
 T5="$SB/target5"; mkdir -p "$T5/.claude" && git -C "$T5" init -q
 cat >"$T5/.claude/settings.json" <<'JSON'
 {
@@ -125,30 +128,33 @@ cat >"$T5/.claude/settings.json" <<'JSON'
   "hooks": {
     "PreToolUse": [
       {"matcher": "Edit|MultiEdit|Write",
-       "hooks": [{"type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/repo-own-guard.sh"}]}
+       "hooks": [{"type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/repo-own-guard.sh"},
+                 {"type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-secrets.sh"}]}
     ]
   }
 }
 JSON
+cp "$T5/.claude/settings.json" "$SB/team0"
 if "$REPO/core/skills/adopt-harness/copy.sh" "$T5" none >"$SB/out5" 2>&1; then
   ok "adoption of a repo with a pre-existing settings.json exits 0"
 else
   no "adoption failed on pre-existing settings.json"; cat "$SB/out5"
 fi
-python3 - "$T5" <<'PY' && ok "harness hooks merged into the EXISTING settings.json" || no "harness hooks missing from merged settings.json"
+cmp -s "$SB/team0" "$T5/.claude/settings.json" && ok "the team's settings.json is BYTE-UNTOUCHED" \
+  || no "adoption dirtied the team-owned settings.json"
+python3 - "$T5" <<'PY' && ok "harness hooks landed in settings.local.json (minus what the team bound)" || no "settings.local.json bindings wrong"
 import json,sys,os
-d=json.load(open(f"{sys.argv[1]}/.claude/settings.json"))
+d=json.load(open(f"{sys.argv[1]}/.claude/settings.local.json"))
 bound={os.path.basename(h["command"].strip('"')) for gs in d["hooks"].values() for g in gs for h in g["hooks"]}
-need={"block-default-branch-commit.sh","block-dangerous-bash.sh","protect-secrets.sh","flag-comment-bloat.sh",
+need={"block-default-branch-commit.sh","block-dangerous-bash.sh","flag-comment-bloat.sh",
       "enforce-gate-on-stop.sh","ensure-workspace.sh","spec-session-orient.sh","collab-reminders.sh"}
 assert need <= bound, need - bound
+assert "protect-secrets.sh" not in bound, "duplicated a hook the team already bound in settings.json"
 PY
-grep -q 'repo-own-guard' "$T5/.claude/settings.json" && ok "the repo's own hook survives the merge" || no "repo's own hook lost"
-grep -q 'Bash(ls:\*)' "$T5/.claude/settings.json" && ok "non-hook keys (permissions) pass through untouched" || no "permissions key damaged"
 [ -f "$T5/.codex/hooks.json" ] && ok "the absent Codex binding file is created in the same run" || no ".codex/hooks.json still missing"
-cp "$T5/.claude/settings.json" "$SB/m1"; cp "$T5/.codex/hooks.json" "$SB/m2"
+cp "$T5/.claude/settings.local.json" "$SB/m1"; cp "$T5/.codex/hooks.json" "$SB/m2"
 "$REPO/core/skills/adopt-harness/copy.sh" "$T5" none >/dev/null 2>&1
-cmp -s "$SB/m1" "$T5/.claude/settings.json" && cmp -s "$SB/m2" "$T5/.codex/hooks.json" \
+cmp -s "$SB/m1" "$T5/.claude/settings.local.json" && cmp -s "$SB/m2" "$T5/.codex/hooks.json" \
   && ok "the merge is idempotent — a re-run changes neither binding file" || no "re-run mutated a binding file"
 
 echo "the doctor verifies activation (P2) — no ✅ on faith"

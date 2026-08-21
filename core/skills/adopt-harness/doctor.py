@@ -46,21 +46,25 @@ def expected_bindings(payload_file):
     return out
 
 
-def bound_set(binding_file):
-    """{(event, script-basename)} actually bound in the target, or None if unreadable."""
-    if not os.path.isfile(binding_file):
-        return None
-    try:
-        with open(binding_file) as f:
-            data = json.load(f)
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        return None
-    return {
-        (event, os.path.basename(h["command"].strip('"')))
-        for event, groups in data.get("hooks", {}).items()
-        for g in groups
-        for h in g.get("hooks", [])
-    }
+def bound_set(binding_files):
+    """{(event, script-basename)} bound across every readable file, or None if none is."""
+    found = None
+    for path in binding_files:
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path) as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            continue
+        found = found or set()
+        found |= {
+            (event, os.path.basename(h["command"].strip('"')))
+            for event, groups in data.get("hooks", {}).items()
+            for g in groups
+            for h in g.get("hooks", [])
+        }
+    return found
 
 
 def fire(script, event, cwd):
@@ -77,9 +81,13 @@ def fire(script, event, cwd):
 
 def main():
     root, target = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
+    # Claude merges settings.json with settings.local.json at runtime — a hook bound in EITHER fires.
     providers = [
-        ("claude", os.path.join(root, "adopt", "settings.json"), os.path.join(target, ".claude", "settings.json")),
-        ("codex", os.path.join(root, "adopt", "codex", "hooks.json"), os.path.join(target, ".codex", "hooks.json")),
+        ("claude", os.path.join(root, "adopt", "settings.json"),
+         [os.path.join(target, ".claude", "settings.json"),
+          os.path.join(target, ".claude", "settings.local.json")]),
+        ("codex", os.path.join(root, "adopt", "codex", "hooks.json"),
+         [os.path.join(target, ".codex", "hooks.json")]),
     ]
     hooks_dir = os.path.join(target, ".claude", "hooks")
     red = 0
@@ -90,10 +98,11 @@ def main():
         fired = {}  # basename -> (ok, detail); scripts are shared, fire each once
 
         print(f"doctor: hook activation in {target}")
-        for name, payload_file, binding_file in providers:
+        for name, payload_file, binding_files in providers:
             expected = expected_bindings(payload_file)
-            bound = bound_set(binding_file)
-            rel = os.path.relpath(binding_file, target)
+            bound = bound_set(binding_files)
+            rel = " + ".join(os.path.relpath(p, target) for p in binding_files if os.path.isfile(p)) \
+                or os.path.relpath(binding_files[0], target)
             if bound is None:
                 print(f"  {name} ({rel}) — MISSING or unparseable; nothing is bound")
             else:

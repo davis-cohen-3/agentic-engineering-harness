@@ -32,9 +32,10 @@ This session runs IN the target repo, pointed at a local clone of the harness (e
 
 **Re-running is safe.** Scaffolding is copied every time; anything a repo fills in —
 `CLAUDE.md`, `AGENTS.md`, `make/gate.mk` — is written only when absent and skipped with a
-notice otherwise. Hook **bindings** are different: they MERGE (keyed by event + script),
-so a repo's own hooks survive and the harness hooks are always added — a pre-existing
-binding file never silently disables governance. Re-running also repairs lost bindings.
+notice otherwise. Hook **bindings** are different: they MERGE (keyed by event + script) —
+Claude bindings into `.claude/settings.local.json` (the team's `settings.json` is read for
+dedup but never written), Codex bindings into `.codex/hooks.json`. A pre-existing binding
+file never silently disables governance, and re-running repairs lost bindings.
 
 ## 2. Scout this repo (subagents — don't read it all yourself)
 You're already in the target, so `scout` runs against it natively (no `git -C` needed).
