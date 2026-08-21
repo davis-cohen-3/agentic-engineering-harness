@@ -172,7 +172,7 @@ is 2 "a hook invoked through its Codex binding FROM a subdirectory still blocks"
 python3 - "$T" <<'PY' && ok "every Claude binding resolves via \$CLAUDE_PROJECT_DIR" || no "a Claude binding is dangling"
 import json,sys,os
 t=sys.argv[1]
-for g in (grp for ev in json.load(open(f"{t}/.claude/settings.json"))["hooks"].values() for grp in ev):
+for g in (grp for ev in json.load(open(f"{t}/.claude/settings.local.json"))["hooks"].values() for grp in ev):
     for h in g["hooks"]:
         p=h["command"].replace("$CLAUDE_PROJECT_DIR",t)
         assert os.path.isfile(p) and os.access(p,os.X_OK), p

@@ -290,8 +290,9 @@ adopt/                     → a target repo
   AGENTS.template.md       → AGENTS.md — THE profile (see L)
   CLAUDE.template.md       → CLAUDE.md — a stub that @AGENTS.md
   hooks/                   → .claude/hooks/ — one copy, two bindings (see K)
-  settings.json            → .claude/settings.json   (Claude binding)
-  codex/hooks.json         → .codex/hooks.json       (Codex binding)
+  settings.json            → .claude/settings.local.json (Claude binding — MERGED, keyed by
+                             event+script; the team's settings.json is read for dedup, never written)
+  codex/hooks.json         → .codex/hooks.json       (Codex binding — MERGED the same way)
   docs/                    → docs/ — INDEX.md, architecture.md, glossary.md, adrs/ (see §4)
   Makefile, make/, specs/
 ```

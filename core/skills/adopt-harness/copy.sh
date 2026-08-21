@@ -123,10 +123,14 @@ done
 chmod +x "$TARGET"/.claude/hooks/*.sh 2>/dev/null || true
 
 # ── Hook bindings MERGE (see header): the repo's own hooks survive, ours are added once.
+# Claude reads settings.json AND settings.local.json; harness bindings go in LOCAL (untracked
+# by convention) so a team-owned settings.json is never dirtied. It is passed as a sibling so a
+# hook the team already bound there is not duplicated.
 command -v python3 >/dev/null 2>&1 || { echo "✗ python3 is required to merge hook bindings" >&2; exit 1; }
-for pair in "adopt/settings.json:.claude/settings.json" "adopt/codex/hooks.json:.codex/hooks.json"; do
-  note "→ ${pair#*:}: $(python3 "$HERE/merge-hook-bindings.py" "$ROOT/${pair%%:*}" "$TARGET/${pair#*:}")"
-done
+note "→ .claude/settings.local.json: $(python3 "$HERE/merge-hook-bindings.py" \
+  "$ROOT/adopt/settings.json" "$TARGET/.claude/settings.local.json" "$TARGET/.claude/settings.json")"
+note "→ .codex/hooks.json: $(python3 "$HERE/merge-hook-bindings.py" \
+  "$ROOT/adopt/codex/hooks.json" "$TARGET/.codex/hooks.json")"
 
 # ── Decision O: hook scripts are copied per repo (decision K), so a fix reaches a repo only by
 # re-adoption — the stamp is what lets a check say "this repo is N commits behind". Refreshed on
