@@ -191,5 +191,28 @@ grep -q '7687e47a0caa6a75cdf880cf8ae1e258c9dec979' "$REPO/adopt/hooks/protect-se
   && ok "the harvest blob SHA is RECORDED (marker only — faithfulness verified out-of-band)" \
   || no "harvest provenance not recorded"
 
+echo "route-worktree.sh — worktree names from session input are sanitized (2026-08-21)"
+RW="$T/.agents/hooks/route-worktree.sh"
+mkdir -p "$SB/evil-target"                                   # the container is $SB; this sits beside worktrees/
+printf '%s' '{"name":"../../evil-target"}' >"$SB/payload.json"
+OUT="$(cd "$T" && "$RW" <"$SB/payload.json" 2>"$SB/rw.err")"; RC=$?
+case "$OUT" in
+  *..*) no "a traversal name escaped into the session-root path: $OUT" ;;
+  *)    ok "a traversal name never reaches the path (replaced with a generated name)" ;;
+esac
+if [ "$RC" -eq 0 ]; then
+  # compare physically: mktemp hands out /var/... which is a symlink to /private/var/... on macOS
+  if [ "$(cd "$(dirname "$OUT")" 2>/dev/null && pwd -P)" = "$(cd "$SB/worktrees" && pwd -P)" ]; then
+    ok "…and the session still roots inside the container's worktrees/"
+  else
+    no "…session rooted at $OUT"
+  fi
+fi
+mkdir -p "$SB/worktrees/impostor"
+printf '%s' '{"name":"impostor"}' >"$SB/payload.json"
+( cd "$T" && "$RW" <"$SB/payload.json" >/dev/null 2>&1 ); RC=$?
+[ "$RC" -ne 0 ] && ok "an existing directory that is NOT a registered worktree is refused" \
+  || no "an impostor directory was handed out as a session root"
+
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

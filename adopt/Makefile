@@ -38,6 +38,12 @@ harness-canary:
 	  test -z "$$bad" || { echo "✗ dangling agent symlink(s):"; echo "$$bad" | sed 's/^/    /'; exit 1; }; \
 	  ls .agents/hooks/*.sh >/dev/null 2>&1 \
 	    || { echo "✗ no hook scripts at .agents/hooks/"; exit 1; }; \
+	  for h in $$(grep -ho '\.agents/hooks/[A-Za-z0-9._-]*\.sh' .claude/settings.json .claude/settings.local.json .codex/hooks.json 2>/dev/null | sort -u); do \
+	    test -x "$$h" || { echo "✗ a binding names $$h but it is missing or not executable"; exit 1; }; \
+	  done; \
+	  for h in $$(grep -ho '\.claude/hooks/[A-Za-z0-9._-]*\.sh' .claude/settings.json .claude/settings.local.json .codex/hooks.json 2>/dev/null | sort -u); do \
+	    test -e "$$h" || { echo "✗ a binding still points at the old home: $$h (missing)"; exit 1; }; \
+	  done; \
 	  echo "→ harness canary: adapters resolve, hooks present"; }
 
 # Run once per fresh clone/worktree before the gate or the app. Idempotent.
