@@ -62,15 +62,24 @@ def main():
                     sibling_bound.setdefault(event, set()).add(basename(h["command"]))
 
     events = dest.setdefault("hooks", {})
-    merged, already = 0, 0
+    merged, updated, already = 0, 0, 0
     for event, groups in payload.get("hooks", {}).items():
         dest_groups = events.setdefault(event, [])
-        bound = {basename(h["command"]) for g in dest_groups for h in g.get("hooks", [])}
-        bound |= sibling_bound.get(event, set())
+        # dest is the harness-managed file, so an entry with our script but a stale
+        # command form is OURS to upgrade in place; a sibling's entry never is.
+        ours = {basename(h["command"]): h for g in dest_groups for h in g.get("hooks", [])}
         for group in groups:
             for hook in group.get("hooks", []):
-                if basename(hook["command"]) in bound:
+                name = basename(hook["command"])
+                if name in sibling_bound.get(event, set()):
                     already += 1
+                    continue
+                if name in ours:
+                    if ours[name]["command"] != hook["command"]:
+                        ours[name]["command"] = hook["command"]
+                        updated += 1
+                    else:
+                        already += 1
                     continue
                 matcher = group.get("matcher")
                 target = next((g for g in dest_groups if g.get("matcher") == matcher), None)
@@ -78,16 +87,22 @@ def main():
                     target = {"hooks": []} if matcher is None else {"matcher": matcher, "hooks": []}
                     dest_groups.append(target)
                 target["hooks"].append(hook)
-                bound.add(basename(hook["command"]))
+                ours[name] = hook
                 merged += 1
 
-    if merged:
+    if merged or updated:
         os.makedirs(os.path.dirname(dest_path) or ".", exist_ok=True)
         with open(dest_path, "w") as f:
             json.dump(dest, f, indent=2)
             f.write("\n")
-        verb = "created with" if created else "merged"
-        print(f"{verb} {merged} binding(s)" + (f", {already} already bound" if already else ""))
+        parts = []
+        if merged:
+            parts.append(f"created with {merged} binding(s)" if created else f"merged {merged} binding(s)")
+        if updated:
+            parts.append(f"updated {updated} stale command(s)")
+        if already:
+            parts.append(f"{already} already bound")
+        print(", ".join(parts))
     else:
         print(f"all {already} binding(s) already bound")
     return 0
