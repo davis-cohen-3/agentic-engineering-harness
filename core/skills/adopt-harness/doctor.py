@@ -9,7 +9,7 @@ What the harness EXPECTS is read from the payload binding files themselves
 separate list would be a second copy to keep in sync. For every expected
 (event, script) pair, per provider, the doctor answers three questions:
 
-  present — does the script exist at .claude/hooks/ and is it executable?
+  present — does the script exist at .agents/hooks/ and is it executable?
   bound   — does that provider's binding file reference it under that event?
   fires   — invoked once with a benign payload (cwd = a scratch git repo, so
             nothing in the target is touched), does it exit 0? This catches
@@ -90,7 +90,7 @@ def main():
         ("codex", os.path.join(root, "adopt", "codex", "hooks.json"),
          [os.path.join(target, ".codex", "hooks.json")]),
     ]
-    hooks_dir = os.path.join(target, ".claude", "hooks")
+    hooks_dir = os.path.join(target, ".agents", "hooks")
     red = 0
 
     # One scratch repo for every firing: hooks resolve git/make against it, never the target.

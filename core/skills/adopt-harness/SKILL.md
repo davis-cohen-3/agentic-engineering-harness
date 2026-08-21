@@ -27,15 +27,24 @@ This session runs IN the target repo, pointed at a local clone of the harness (e
 ```
 
 `copy.sh` is self-locating (it finds the harness from its own path) and owns the manifest
-(the definition of what travels). It installs both providers' hook bindings and the
-`.agents/skills → .claude/skills` symlink Codex needs to see project skills.
+(the definition of what travels). It homes everything at the provider-neutral `.agents/` root —
+hooks at `.agents/hooks/`, briefs at `.agents/briefs/`, skills at `.agents/skills/` — and wires
+the thin adapters both providers resolve through: `.claude/skills` symlinks to the skills home
+(Codex scans `.agents/skills` natively), `.claude/agents/*.md` symlink to the briefs,
+`.codex/agents/*.toml` point at them by path, and both providers' hook bindings are installed.
+A repo adopted before the neutral root is migrated in place.
 
-**Re-running is safe.** Scaffolding is copied every time; anything a repo fills in —
-`CLAUDE.md`, `AGENTS.md`, `make/gate.mk` — is written only when absent and skipped with a
-notice otherwise. Hook **bindings** are different: they MERGE (keyed by event + script) —
-Claude bindings into `.claude/settings.local.json` (the team's `settings.json` is read for
-dedup but never written), Codex bindings into `.codex/hooks.json`. A pre-existing binding
-file never silently disables governance, and re-running repairs lost bindings.
+**Re-running is safe, and IS the upgrade path.** Anything a repo fills in — `CLAUDE.md`,
+`AGENTS.md`, `make/gate.mk`, `specs/README.md`, the docs scaffolds — is written only when absent.
+Hook **bindings** MERGE (keyed by event + script) — Claude bindings into
+`.claude/settings.local.json` (the team's `settings.json` is read for dedup but never written),
+Codex bindings into `.codex/hooks.json`. Everything else is MANAGED and updates by a three-way
+comparison against `.agents/MANIFEST`: untouched entries refresh, locally-edited ones are held
+and counted, and an entry changed on BOTH sides is a loud conflict — the run exits 1 and names
+each path. Resolve conflicts one decision at a time with
+`copy.sh --resolve <path>=<upstream|local|omit> .` and re-run; entries in the harness's
+`adopt/CRITICAL` (the security hooks) block the ✅ until resolved. Never resolve a CRITICAL
+conflict for the user — show them both sides and ask.
 
 ## 2. Scout this repo (subagents — don't read it all yourself)
 You're already in the target, so `scout` runs against it natively (no `git -C` needed).
@@ -65,7 +74,8 @@ scout didn't find — flag gaps instead.
 - Confirm the copied tree is clean: no `recommended/` catalogs, no `adopt-harness/`, no retired
   spec companions (`*.context.md`, `spec.thoughts.md`, `spec.sessions/`); `AGENTS.md` is the
   filled profile and `CLAUDE.md` only imports it.
-- Confirm BOTH providers can see it: `.agents/skills` resolves to `.claude/skills`, and the
+- Confirm BOTH providers can see it: `.claude/skills` resolves to the `.agents/skills` home
+  (`make check`'s harness canary asserts this), and the
   doctor is green — `copy.sh` runs it automatically (no ✅ without it), and it can be re-run
   any time: `<harness-path>/core/skills/adopt-harness/copy.sh --doctor .` — every hook
   present, bound per provider, and fired clean against a benign payload. If it warns about a

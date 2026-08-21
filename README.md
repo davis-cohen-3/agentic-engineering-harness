@@ -34,9 +34,14 @@ scouting, filling, and verifying all happen in the repo you'll actually work in.
    green. Everything else (skills, agents, hooks, rules) is inherited byte-identical, and the
    harness is live in that same session.
 
-**Re-runnable.** Anything a repo fills in — `AGENTS.md`, `CLAUDE.md`, `make/gate.mk`, both hook
-binding files, and the `docs/` scaffolds — is written only when absent, so re-adoption cannot undo
-filled-in work. Scaffolding a repo never hand-edits is copied unconditionally.
+**Re-runnable.** Anything a repo fills in — `AGENTS.md`, `CLAUDE.md`, `make/gate.mk`, and the
+`docs/` scaffolds — is written only when absent, so re-adoption cannot undo filled-in work. Hook
+bindings MERGE (the repo's own entries survive). Everything else is MANAGED: updated by a
+three-way comparison against the pristine hash recorded in `.agents/MANIFEST` — an untouched
+entry refreshes, a locally-edited one is held and counted, and an entry where BOTH sides changed
+is a loud conflict resolved per path with `--resolve <path>=<upstream|local|omit>`. Entries in
+`adopt/CRITICAL` fail closed. Never a silent keep, never a silent clobber
+(`specs/harness-standardization/research/UPDATE-SEMANTICS-PROPOSAL-2026-08.md`).
 
 The slot contract (defaults, what's optional) is `docs/OVERLAY-CONTRACT.md`; the traveling-file
 manifest is `core/skills/adopt-harness/copy.sh`. After adoption the harness travels into
@@ -49,9 +54,9 @@ autonomous/cloud runs free via the clone.
 | 1 | **Always-on profile** | `AGENTS.md` (both providers read it) + `CLAUDE.md` (a stub that `@AGENTS.md`) | definition of done, workflow, risk hotspots |
 | 2 | **Path-scoped rules** | `.claude/rules/` | advisory conventions that auto-attach via `paths:` only when matching files are touched |
 | 3 | **Quality gate** | `Makefile` (base) + `make/gate.mk` (overlay) | `make check` = the one "done" gate; repo enumerates checks |
-| 4 | **Skills** | `.claude/skills/` | plan (`brainstorm`/`grill`/`write-plan`) · build (`tdd`/`diagnose`/`verify-before-done`/`open-a-pr`) · `handoff` |
-| 5 | **Subagents (4)** | `.claude/agents/` | `scout`/`researcher` (research the design) · `reviewer`/`reviewer-security` (judge the output) |
-| 6 | **Hooks** | `.claude/settings.json` + `.claude/hooks/` | the guardrails that survive an autonomous run (below) |
+| 4 | **Skills** | `.agents/skills/` (`.claude/skills` symlinks to it; Codex scans it natively) | plan (`brainstorm`/`grill`/`write-plan`) · build (`tdd`/`diagnose`/`verify-before-done`/`open-a-pr`) · `handoff` |
+| 5 | **Subagents (4)** | `.agents/briefs/` (`.claude/agents/*.md` symlink to them; `.codex/agents/*.toml` point at them) | `scout`/`researcher` (research the design) · `reviewer`/`reviewer-security` (judge the output) |
+| 6 | **Hooks** | `.agents/hooks/`, bound by `.claude/settings.local.json` + `.codex/hooks.json` | the guardrails that survive an autonomous run (below) |
 | 7 | **MCPs** | `.mcp.json` | ships **empty** — the seed repos add servers into (from `docs/recommended/mcps.md`); secrets are `${VAR}`-referenced, never literal |
 | 8 | **Specs / docs scaffolds** | `specs/`, `docs/` | the plan→build handoff and codebase context (architecture · glossary · **ADRs** in `docs/adrs/`); each has a README |
 

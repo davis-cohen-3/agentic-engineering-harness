@@ -2,7 +2,7 @@
 # Acceptance test for Codex hook parity (plan/tasks.md T0.11).
 #
 # Exercises every hook against BOTH providers' real payload shapes, from a real adopted repo so
-# the scripts run from their deployment path (.claude/hooks/), not from the source tree.
+# the scripts run from their deployment path (.agents/hooks/), not from the source tree.
 #
 # The Codex apply_patch envelope modelled here was read off 118 real apply_patch calls in
 # ~/.codex/sessions: a custom_tool_call whose `input` is the raw patch text, whose only
@@ -25,7 +25,7 @@ T="$SB/target"
 mkdir -p "$T" && git -C "$T" init -q -b main && git -C "$T" commit -q --allow-empty -m init
 "$REPO/core/skills/adopt-harness/copy.sh" "$T" python >"$SB/adopt.log" 2>&1 \
   || { echo "copy.sh failed"; cat "$SB/adopt.log"; exit 1; }
-H="$T/.claude/hooks"
+H="$T/.agents/hooks"
 
 KEY="sk-ant-api03-$(printf 'A%.0s' $(seq 32))"   # shape-only; never a real credential
 
@@ -166,7 +166,7 @@ for g in (grp for ev in json.load(open(f"{t}/.codex/hooks.json"))["hooks"].value
         p=subprocess.check_output(["bash","-c",f'echo {h["command"]}'],cwd=sub,text=True).strip()
         assert os.path.isfile(p) and os.access(p,os.X_OK), p
 PY
-RESOLVED="$(cd "$T/src/deep/nested" && bash -c 'echo "$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/hooks/protect-secrets.sh"')"
+RESOLVED="$(cd "$T/src/deep/nested" && bash -c 'echo "$(git rev-parse --path-format=absolute --git-common-dir)/../.agents/hooks/protect-secrets.sh"')"
 run "$RESOLVED" "$(j read "$T/.env")" "$T/src/deep/nested"
 is 2 "a hook invoked through its Codex binding FROM a subdirectory still blocks"
 python3 - "$T" <<'PY' && ok "every Claude binding resolves from a subdirectory too" || no "a Claude binding is dangling"

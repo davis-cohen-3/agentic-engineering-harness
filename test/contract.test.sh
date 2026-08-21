@@ -20,34 +20,52 @@ absent() {
   if grep -rqiE "$1" $2 2>/dev/null; then no "$3"; grep -rilE "$1" $2 2>/dev/null | sed 's/^/      /'; else ok "$3"; fi
 }
 
-AGENTS="core/claude/agents core/codex/agents"
+AGENTS="adopt/agents adopt/codex/agents"
 
 echo "T0.12 — reviewers run only when asked (DECISION E)"
 absent 'Trigger after an implementation is' "$AGENTS" "reviewer's self-trigger sentence is gone from both formats"
 absent 'Trigger whenever the diff hits a hotspot' "$AGENTS" "reviewer-security's self-trigger sentence is gone from both formats"
 # YAML folds a long description across lines, so match against whitespace-normalised text.
-for f in core/claude/agents/reviewer.md core/claude/agents/reviewer-security.md \
-         core/codex/agents/reviewer.toml core/codex/agents/reviewer-security.toml; do
+for f in adopt/agents/reviewer.md adopt/agents/reviewer-security.md \
+         adopt/codex/agents/reviewer.toml adopt/codex/agents/reviewer-security.toml; do
   tr '\n' ' ' <"$f" | tr -s ' ' | grep -qi 'only when the developer explicitly asks' \
     && ok "$(basename "$f") states it is never invoked automatically" \
     || no "$(basename "$f") does not state that it runs only on request"
 done
-grep -q '^model: opus$' core/claude/agents/reviewer-security.md \
+grep -q '^model: opus$' adopt/agents/reviewer-security.md \
   && ok "reviewer-security is model: opus" || no "reviewer-security is not opus"
-grep -q '^model: sonnet$' core/claude/agents/reviewer.md \
+grep -q '^model: sonnet$' adopt/agents/reviewer.md \
   && ok "reviewer stays model: sonnet" || no "reviewer's model changed unexpectedly"
-grep -q 'do not invoke' core/claude/agents/reviewer.md \
+grep -q 'do not invoke' adopt/agents/reviewer.md \
   && ok "reviewer names hotspots rather than delegating to reviewer-security" \
   || no "reviewer may still delegate to reviewer-security"
 
-echo "the four agents are one text in two formats (CONTRACT §5)"
-python3 - <<'PY' && ok "every Claude .md body is byte-identical to its Codex .toml body" || no "an agent's two formats have drifted"
-import re,sys,tomllib,pathlib
-for md in sorted(pathlib.Path("core/claude/agents").glob("*.md")):
-    toml=pathlib.Path("core/codex/agents")/(md.stem+".toml")
+echo "the agents are ONE text at the neutral root; the Codex toml is a POINTER (CONTRACT §5, amended 2026-08-21)"
+python3 - <<'PY' && ok "every brief has a pointer toml aimed at .agents/briefs/; descriptions in step" || no "a brief/toml pair drifted"
+import re,tomllib,pathlib,yaml
+mds=sorted(pathlib.Path("adopt/agents").glob("*.md"))
+assert mds, "no briefs in adopt/agents"
+for md in mds:
+    toml=pathlib.Path("adopt/codex/agents")/(md.stem+".toml")
+    data=tomllib.loads(toml.read_text())
+    dev=data["developer_instructions"]
+    assert f".agents/briefs/{md.stem}.md" in dev, f"{toml.name} does not point at the brief"
+    assert "Your full brief is" in dev, f"{toml.name} is not a pointer"
     body=re.sub(r"^---\n.*?\n---\n","",md.read_text(),flags=re.S).strip()
-    dev=tomllib.loads(toml.read_text())["developer_instructions"].strip()
-    assert body==dev, f"{md.name} != {toml.name}"
+    assert body not in dev, f"{toml.name} inlines the brief body — the body is single-sourced"
+    fm=yaml.safe_load(re.match(r"^---\n(.*?)\n---\n", md.read_text(), re.S).group(1))
+    norm=lambda s:" ".join(s.split())
+    assert norm(fm["description"])==norm(data["description"]), f"{toml.name} description drifted from the brief's"
+PY
+echo "every CRITICAL entry is a hook the payload actually ships"
+python3 - <<'PY' && ok "adopt/CRITICAL names only real .agents/hooks entries" || no "adopt/CRITICAL is out of step with the payload"
+import pathlib
+lines=[l.strip() for l in pathlib.Path("adopt/CRITICAL").read_text().splitlines()
+       if l.strip() and not l.startswith("#")]
+assert lines, "CRITICAL is empty — the fail-closed class has no members"
+for l in lines:
+    assert l.startswith(".agents/hooks/"), f"not a hooks path: {l}"
+    assert (pathlib.Path("adopt/hooks")/l.split("/")[-1]).exists(), f"payload does not ship {l}"
 PY
 
 echo "open-a-pr owns the LOG.md carry; nothing restates it (CONTRACT §4)"
@@ -124,18 +142,19 @@ ls docs/*.md 2>/dev/null | grep -qE 'HIGH-LEVEL-CONTEXT|DESIGN-REVIEW|RESEARCH-2
   && no "a planning/research artifact is still in docs/" || ok "docs/ holds no planning artifacts"
 # Membership in the right ARRAY, not presence in the file: a whole-file grep stays green when an
 # entry moves from ONCE to FIXED, which is exactly the change that would clobber a repo's docs.
-python3 - <<'PY' && ok "every docs scaffold entry is in ONCE, none in FIXED" || no "a docs entry is in the wrong manifest array"
+python3 - <<'PY' && ok "every docs scaffold entry (and specs/README.md) is in ONCE, none in MANAGED_STATIC" || no "a docs entry is in the wrong manifest array"
 import re,sys,pathlib
 t=pathlib.Path("core/skills/adopt-harness/copy.sh").read_text()
 def arr(name):
     m=re.search(rf'^{name}=\((.*?)^\)', t, re.S|re.M)
     return re.findall(r'"([^"]+)"', m.group(1)) if m else []
-fixed,once=arr("FIXED"),arr("ONCE")
+fixed,once=arr("MANAGED_STATIC"),arr("ONCE")
 docs=[e for e in fixed+once if e.startswith("adopt/docs")]
 assert docs, "no docs entries in either manifest"
 bad=[e for e in fixed if e.startswith("adopt/docs")]
-assert not bad, f"clobbering entries in FIXED: {bad}"
-for f in ("adopt/docs/INDEX.md","adopt/docs/architecture.md","adopt/docs/glossary.md"):
+assert not bad, f"clobbering entries in MANAGED_STATIC: {bad}"
+for f in ("adopt/docs/INDEX.md","adopt/docs/architecture.md","adopt/docs/glossary.md",
+          "adopt/specs/README.md"):
     assert any(e.startswith(f+":") for e in once), f"{f} not in ONCE"
 PY
 
@@ -204,6 +223,7 @@ ALLOW=("test/","packs/","adopt/Makefile",
 bad=[]
 for p in pathlib.Path(".").rglob("*"):
     if not p.is_file() or ".git" in p.parts: continue
+    if ".workspace" in p.parts: continue   # session memory: untracked, globally ignored, not a live surface
     if HIST.search(str(p)) or any(str(p).startswith(a) for a in ALLOW): continue
     if p.suffix not in (".md",".sh",".json",".mk",".toml") and p.name!="Makefile": continue
     try: t=p.read_text()

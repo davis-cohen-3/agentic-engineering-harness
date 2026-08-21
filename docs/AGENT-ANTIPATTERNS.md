@@ -19,10 +19,10 @@ hook; judgment-only posture → a reminder; everything else → the profile / pa
 | # | Observed behavior | Mechanism | Where | Status |
 |---|---|---|---|---|
 | 1 | Over-adds fallbacks / defensive code I didn't ask for | candidate profile/rule line | — | ⬜ |
-| 2 | Verbose comments / docs (explains the *what*) | profile "minimal comments" + comment-bloat habit hook | `AGENTS.md`, `.claude/hooks/flag-comment-bloat.sh` | ✅ |
+| 2 | Verbose comments / docs (explains the *what*) | profile "minimal comments" + comment-bloat habit hook | `AGENTS.md`, `.agents/hooks/flag-comment-bloat.sh` | ✅ |
 | 3 | Reinvents logic the codebase already has | resolved during planning (scope/reuse) | `write-plan` skill, `scout` agent | 🧭 |
 | 4 | Picks the complex/sophisticated build over simple+effective | candidate profile/rule line | — | ⬜ |
-| 5 | Implements/tests or does more than asked, unprompted | plan-vs-build mode + collab reminder (🛤️ no course change w/o permission) | `AGENTS.md`, `.claude/hooks/collab-reminders.sh` | 🟡 |
+| 5 | Implements/tests or does more than asked, unprompted | plan-vs-build mode + collab reminder (🛤️ no course change w/o permission) | `AGENTS.md`, `.agents/hooks/collab-reminders.sh` | 🟡 |
 | 6 | Spreads scope / loads many domains → context "clouding" | profile "one run, one task" | `AGENTS.md` | 🟡 |
 | 7 | Writes too much for me to read; not concise | none yet (kept out of the collab hook by choice) | candidate: personal `~/.claude` or a reminder line | ⬜ |
 
