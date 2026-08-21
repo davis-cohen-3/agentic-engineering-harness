@@ -109,13 +109,64 @@ echo "re-running does not clobber filled-in work"
 echo "FILLED IN BY THE REPO" >"$T/CLAUDE.md"
 echo "FILLED IN BY THE REPO" >"$T/AGENTS.md"
 echo "GATE_STEPS = real-checks" >"$T/make/gate.mk"
-python3 -c "import json;json.dump({'hooks':{}},open('$T/.claude/settings.json','w'))"
 "$REPO/core/skills/adopt-harness/copy.sh" "$T" python >"$SB/out2" 2>&1 || no "second run failed"
 grep -q 'FILLED IN' "$T/CLAUDE.md"        && ok "CLAUDE.md not clobbered"       || no "CLAUDE.md clobbered"
 grep -q 'FILLED IN' "$T/AGENTS.md"        && ok "AGENTS.md not clobbered"       || no "AGENTS.md clobbered"
 grep -q 'real-checks' "$T/make/gate.mk"   && ok "make/gate.mk not clobbered"    || no "make/gate.mk clobbered"
-grep -q '"hooks": {}' "$T/.claude/settings.json" && ok "settings.json not clobbered" || no "settings.json clobbered"
 [ -L "$T/.agents/skills" ] && ok "the symlink survives re-adoption" || no "symlink broken by re-adoption"
+
+echo "bindings MERGE — the smoke failure mode (P1) cannot recur"
+# Smoke 2026-08-21: .claude/settings.json existed (repo-owned hooks), .codex/hooks.json did
+# not. Fill-once skipped one and created the other — half-governed under a ✅.
+T5="$SB/target5"; mkdir -p "$T5/.claude" && git -C "$T5" init -q
+cat >"$T5/.claude/settings.json" <<'JSON'
+{
+  "permissions": {"allow": ["Bash(ls:*)"]},
+  "hooks": {
+    "PreToolUse": [
+      {"matcher": "Edit|MultiEdit|Write",
+       "hooks": [{"type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/repo-own-guard.sh"}]}
+    ]
+  }
+}
+JSON
+if "$REPO/core/skills/adopt-harness/copy.sh" "$T5" none >"$SB/out5" 2>&1; then
+  ok "adoption of a repo with a pre-existing settings.json exits 0"
+else
+  no "adoption failed on pre-existing settings.json"; cat "$SB/out5"
+fi
+python3 - "$T5" <<'PY' && ok "harness hooks merged into the EXISTING settings.json" || no "harness hooks missing from merged settings.json"
+import json,sys,os
+d=json.load(open(f"{sys.argv[1]}/.claude/settings.json"))
+bound={os.path.basename(h["command"].strip('"')) for gs in d["hooks"].values() for g in gs for h in g["hooks"]}
+need={"block-default-branch-commit.sh","block-dangerous-bash.sh","protect-secrets.sh","flag-comment-bloat.sh",
+      "enforce-gate-on-stop.sh","ensure-workspace.sh","spec-session-orient.sh","collab-reminders.sh"}
+assert need <= bound, need - bound
+PY
+grep -q 'repo-own-guard' "$T5/.claude/settings.json" && ok "the repo's own hook survives the merge" || no "repo's own hook lost"
+grep -q 'Bash(ls:\*)' "$T5/.claude/settings.json" && ok "non-hook keys (permissions) pass through untouched" || no "permissions key damaged"
+[ -f "$T5/.codex/hooks.json" ] && ok "the absent Codex binding file is created in the same run" || no ".codex/hooks.json still missing"
+cp "$T5/.claude/settings.json" "$SB/m1"; cp "$T5/.codex/hooks.json" "$SB/m2"
+"$REPO/core/skills/adopt-harness/copy.sh" "$T5" none >/dev/null 2>&1
+cmp -s "$SB/m1" "$T5/.claude/settings.json" && cmp -s "$SB/m2" "$T5/.codex/hooks.json" \
+  && ok "the merge is idempotent — a re-run changes neither binding file" || no "re-run mutated a binding file"
+
+echo "the doctor verifies activation (P2) — no ✅ on faith"
+grep -q '✅ harness copied and verified active' "$SB/out5" && ok "✅ only after the doctor passes" || no "✅ printed without verification"
+"$REPO/core/skills/adopt-harness/copy.sh" --doctor "$T5" >"$SB/doc" 2>&1 && ok "--doctor: green repo exits 0" || no "--doctor red on a healthy repo: $(cat "$SB/doc")"
+grep -q 'fires clean' "$SB/doc" && ok "hooks are FIRED against a benign payload, not just listed" || no "no firing evidence in doctor output"
+python3 - "$T5" <<'PY'
+import json,sys
+p=f"{sys.argv[1]}/.codex/hooks.json"; d=json.load(open(p))
+d["hooks"]["Stop"]=[]
+json.dump(d,open(p,"w"),indent=2)
+PY
+"$REPO/core/skills/adopt-harness/copy.sh" --doctor "$T5" >"$SB/doc" 2>&1
+rc=$?
+[ "$rc" -eq 1 ] && grep -q 'NOT BOUND under Stop' "$SB/doc" && ok "--doctor: an unbound hook is exit 1 and NAMED" \
+  || no "unbound hook not surfaced (exit $rc): $(cat "$SB/doc")"
+"$REPO/core/skills/adopt-harness/copy.sh" "$T5" none >/dev/null 2>&1 \
+  && ok "re-adoption heals the unbound hook — the upgrade path is also the repair path" || no "re-adoption did not heal"
 
 echo "refuses to adopt itself"
 "$REPO/core/skills/adopt-harness/copy.sh" "$REPO" >/dev/null 2>&1 && no "adopted itself" || ok "refuses self-adoption"
@@ -133,7 +184,7 @@ echo "staleness is measured, not guessed — against a harness that moves ahead"
 MH="$SB/mini-harness"
 mkdir -p "$MH/core/skills/adopt-harness"
 cp -R "$REPO/adopt" "$MH/adopt"
-cp "$REPO/core/skills/adopt-harness/copy.sh" "$MH/core/skills/adopt-harness/copy.sh"
+cp "$REPO/core/skills/adopt-harness/"{copy.sh,merge-hook-bindings.py,doctor.py} "$MH/core/skills/adopt-harness/"
 git -C "$MH" init -q && git -C "$MH" config user.email t@t && git -C "$MH" config user.name t
 git -C "$MH" add -A && git -C "$MH" commit -qm v1
 MCP="$MH/core/skills/adopt-harness/copy.sh"
@@ -160,7 +211,7 @@ echo "a harness copy without git history still adopts — it just cannot stamp"
 NH="$SB/nogit-harness"
 mkdir -p "$NH/core/skills/adopt-harness"
 cp -R "$REPO/adopt" "$NH/adopt"
-cp "$REPO/core/skills/adopt-harness/copy.sh" "$NH/core/skills/adopt-harness/copy.sh"
+cp "$REPO/core/skills/adopt-harness/"{copy.sh,merge-hook-bindings.py,doctor.py} "$NH/core/skills/adopt-harness/"
 T3="$SB/target3"; mkdir -p "$T3" && git -C "$T3" init -q
 "$NH/core/skills/adopt-harness/copy.sh" "$T3" none >"$SB/out3" 2>&1 && ok "adoption still exits 0" || no "no-git adoption failed"
 [ -e "$T3/.claude/harness-version" ] && no "stamped from thin air" || ok "no stamp invented"
