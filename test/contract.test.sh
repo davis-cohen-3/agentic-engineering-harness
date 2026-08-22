@@ -213,7 +213,10 @@ import pathlib,re
 # wave reports. None of it is a live surface; all of it legitimately NAMES what was retired.
 # Enumerating filenames here was brittle and failed the moment the epic gained a document.
 HIST=re.compile(r'^specs/harness-standardization/')
-RETIRED=re.compile(r'\.claude/active-spec|make work SPEC|thoughts\.md|\.sessions/|\.context/<|agent_docs')
+# IGNORECASE: `THOUGHTS.md` and `thoughts.md` are the SAME FILE on a case-insensitive
+# filesystem, so a case-sensitive scan lets the uppercase spelling of a retired name through.
+RETIRED=re.compile(r'\.claude/active-spec|make work SPEC|thoughts\.md|\.sessions/|\.context/<|agent_docs',
+                   re.IGNORECASE)
 # Allowed: files whose whole job is to DESCRIBE a retirement — assert it is gone, refuse to copy
 # it, or tabulate what replaced it. A new *instruction* to use a retired surface still fails.
 ALLOW=("test/","packs/","adopt/Makefile",
@@ -230,6 +233,33 @@ for p in pathlib.Path(".").rglob("*"):
     except Exception: continue
     for n,line in enumerate(t.splitlines(),1):
         if RETIRED.search(line): bad.append(f"{p}:{n}: {line.strip()[:90]}")
+assert not bad, "\n".join(bad)
+PY
+
+echo "every workspace file named on a live surface is one the contract defines"
+# The retired scan above is a DENYLIST: it catches names we already knew to kill. It cannot catch a
+# name nobody has retired yet — which is how melting drifted onto `thoughts.md` / `plan.md` and stayed
+# green for weeks. This is the allowlist half. Anything under `.workspace/` that the contract does not
+# define fails, whether it is a retired name, an invented one, or a typo.
+python3 - <<'PY' && ok "no live surface names a workspace file outside the contract" || no "a live surface names an undefined workspace file"
+import pathlib,re
+# specs/harness-standardization/ is authority and record — it legitimately names superseded shapes.
+HIST=re.compile(r'^specs/harness-standardization/')
+# The schema of DEC-3, and the only names a live surface may write. Growing the contract means
+# adding to this line, which is the point: the addition is visible in the diff.
+CONTRACT={"MISSION.md","LOG.md","history","artifacts"}
+TOKEN=re.compile(r'\.workspace/([A-Za-z0-9_.-]+)')
+bad=[]
+for p in pathlib.Path(".").rglob("*"):
+    if not p.is_file() or ".git" in p.parts: continue
+    if ".workspace" in p.parts: continue   # session memory: untracked, globally ignored, not a live surface
+    if HIST.search(str(p)): continue
+    if p.suffix not in (".md",".sh",".json",".mk",".toml") and p.name!="Makefile": continue
+    try: t=p.read_text()
+    except Exception: continue
+    for n,line in enumerate(t.splitlines(),1):
+        for name in TOKEN.findall(line):
+            if name not in CONTRACT: bad.append(f"{p}:{n}: .workspace/{name}")
 assert not bad, "\n".join(bad)
 PY
 
