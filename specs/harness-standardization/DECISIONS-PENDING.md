@@ -5,7 +5,8 @@
 the **authority** for intent; `CONTRACT.md` and the design review are reconciled *from* it.
 **Settled:** 2026-08-07 (pass 1, DEC-1…15), 2026-08-08 (pass 2, A–J), 2026-08-08 (pass 3, K–L),
 2026-08-09 (pass 4, M–P), 2026-08-21 (pass 5, Q–S — the neutral root; see
-[research/UPDATE-SEMANTICS-PROPOSAL-2026-08.md](research/UPDATE-SEMANTICS-PROPOSAL-2026-08.md)).
+[research/UPDATE-SEMANTICS-PROPOSAL-2026-08.md](research/UPDATE-SEMANTICS-PROPOSAL-2026-08.md)),
+2026-08-22 (pass 6, T — the workspace contract is the harness's).
 **Implementation posture:** Wave 0 is complete and verified (`WAVE-0-VERIFICATION.md`). The machine
 is untouched except Wave 1 T1.1 (`.workspace/` in the global gitignore, pulled forward on the
 developer's instruction); no other repository has been touched.
@@ -31,6 +32,30 @@ state table live in
   (`~/.agents/claude/agents/`) from `adopt/agents/` at install time, and `~/.claude/agents`
   becomes a symlink into it — created when absent or when a real directory matches the
   projection; a drifted directory is left and named (reconcile via `--review`).
+
+## Pass 6 — the workspace contract is the harness's (settled 2026-08-22)
+
+- **T — one workspace contract, single-sourced here.** `MISSION.md` + `LOG.md` + `history/` +
+  `artifacts/` (DEC-3) is the contract. It travels with the harness; an adopted repo does not
+  own a local copy of it and does not fork its shape.
+
+  Ratified because two live shapes were in the field. Melting ran `mission.md` / `thoughts.md` /
+  `plan.md` / `history/` with a repo-owned `docs/workspace.md`, six forked skills, and two forked
+  hooks. That shape is **older**, not newer: it landed in melting in #85 (2026-08-04), five days
+  before harness standardization began (#3, 2026-08-09). Melting commit `4c61efb` already recorded
+  the direction and the shed list; this decision is the ratification that commit lacked, so the
+  migration stops resting on a commit message.
+
+  Both repos were *internally* consistent, which is why nothing failed for weeks — the harness
+  named only contract files, melting named only its own. The divergence was invisible to every
+  gate, and melting's skills are repo-own (absent from `.agents/MANIFEST`), so re-adoption would
+  never have surfaced it either.
+
+  **Consequent requirement:** the retired-conventions scan grew an allowlist half. A denylist only
+  catches names already known to be dead and cannot catch an invented one — `plan.md` matched no
+  retired pattern. `test/contract.test.sh` now also asserts that every `.workspace/<name>` token on
+  a live surface is in the contract set, and the denylist is case-insensitive, because
+  `THOUGHTS.md` and `thoughts.md` are the same file on a case-insensitive filesystem.
 
 ## Authority order
 

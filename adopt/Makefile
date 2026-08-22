@@ -44,7 +44,13 @@ harness-canary:
 	  for h in $$(grep -ho '\.claude/hooks/[A-Za-z0-9._-]*\.sh' .claude/settings.json .claude/settings.local.json .codex/hooks.json 2>/dev/null | sort -u); do \
 	    test -e "$$h" || { echo "✗ a binding still points at the old home: $$h (missing)"; exit 1; }; \
 	  done; \
-	  echo "→ harness canary: adapters resolve, hooks present"; }
+	  bad=$$(grep -rIonE '\.workspace/[A-Za-z0-9_.-]+' --exclude-dir=.git --exclude-dir=node_modules \
+	          --exclude-dir=.workspace --exclude-dir=dist . 2>/dev/null \
+	        | grep -vE ':\.workspace/(MISSION\.md|LOG\.md|history|artifacts)$$'); \
+	  test -z "$$bad" || { echo "✗ a live surface names a workspace file the contract does not define:"; \
+	    echo "$$bad" | sed 's/^/    /'; \
+	    echo "    the contract is .workspace/{MISSION.md,LOG.md,history,artifacts}"; exit 1; }; \
+	  echo "→ harness canary: adapters resolve, hooks present, workspace names are contract names"; }
 
 # Run once per fresh clone/worktree before the gate or the app. Idempotent.
 setup: $(SETUP_STEPS)
