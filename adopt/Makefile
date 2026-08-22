@@ -30,10 +30,21 @@ check: harness-canary $(GATE_STEPS)
 # guards is UNDOCUMENTED Claude behavior (verified 2.1.223) and silently mangled by a clone with
 # core.symlinks=false — either failure would load zero skills without a word. No-op in a repo
 # that has not adopted the neutral-root layout (no .agents/MANIFEST).
+#
+# THREE arrangements are valid, so the canary asserts the OUTCOME rather than one shape: skills
+# actually load. Normally .agents/skills is the home and .claude/skills links to it. A repo that
+# git-TRACKS .claude/skills keeps it as the home and .agents/skills links the other way, because
+# moving a tracked home would stage every tracked skill for deletion. A repo that tracks BOTH
+# keeps two real directories, which copy.sh declines to reconcile for it.
+#
+# What must never happen is the silent one: a dangling link loads ZERO skills without a word.
+# So — .claude/skills must resolve and be non-empty, and any link involved must resolve too.
 harness-canary:
 	@test ! -f .agents/MANIFEST || { \
-	  { test -L .claude/skills && test -e .claude/skills; } \
-	    || { echo "✗ .claude/skills is not a resolving symlink to .agents/skills"; exit 1; }; \
+	  { test -d .claude/skills && test -n "$$(ls -A .claude/skills 2>/dev/null)"; } \
+	    || { echo "✗ .claude/skills does not resolve to a non-empty directory — Claude would load ZERO skills"; exit 1; }; \
+	  { test ! -L .agents/skills || test -e .agents/skills; } \
+	    || { echo "✗ .agents/skills is a dangling symlink — Codex would load ZERO skills"; exit 1; }; \
 	  bad=$$(find .claude/agents -maxdepth 1 -type l ! -exec test -e {} \; -print 2>/dev/null); \
 	  test -z "$$bad" || { echo "✗ dangling agent symlink(s):"; echo "$$bad" | sed 's/^/    /'; exit 1; }; \
 	  ls .agents/hooks/*.sh >/dev/null 2>&1 \
