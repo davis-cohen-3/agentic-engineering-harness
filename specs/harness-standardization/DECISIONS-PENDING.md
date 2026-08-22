@@ -4,10 +4,33 @@
 **pass 4** settled while reviewing the closed wave before any machine step. This file is
 the **authority** for intent; `CONTRACT.md` and the design review are reconciled *from* it.
 **Settled:** 2026-08-07 (pass 1, DEC-1…15), 2026-08-08 (pass 2, A–J), 2026-08-08 (pass 3, K–L),
-2026-08-09 (pass 4, M–P).
+2026-08-09 (pass 4, M–P), 2026-08-21 (pass 5, Q–S — the neutral root; see
+[research/UPDATE-SEMANTICS-PROPOSAL-2026-08.md](research/UPDATE-SEMANTICS-PROPOSAL-2026-08.md)).
 **Implementation posture:** Wave 0 is complete and verified (`WAVE-0-VERIFICATION.md`). The machine
 is untouched except Wave 1 T1.1 (`.workspace/` in the global gitignore, pulled forward on the
 developer's instruction); no other repository has been touched.
+
+## Pass 5 — the neutral root (settled 2026-08-21)
+
+Ratified out of the melting-driven architecture review; the evidence, experiments (Codex
+pointer-following 3/3 on codex-cli 0.147.0; Claude whole-dir and per-file symlink loading on
+2.1.223; git symlink preservation and the `core.symlinks=false` failure mode), and the full
+state table live in
+[research/UPDATE-SEMANTICS-PROPOSAL-2026-08.md](research/UPDATE-SEMANTICS-PROPOSAL-2026-08.md).
+
+- **Q — neutral root + three-way update semantics.** In an adopted repo the harness is homed at
+  `.agents/` (hooks, briefs, skills); `.claude/` and `.codex/` are thin adapters (symlinks and
+  pointer tomls). MANAGED entries update by three-way comparison against the pristine hash in
+  `.agents/MANIFEST`: refresh / held / loud conflict, `--resolve <path>=<upstream|local|omit>`,
+  `adopt/CRITICAL` fails closed. The briefs are ONE text each (single-sourced at `adopt/agents/`);
+  the byte-parity test is retired. The honest rationale is sandbox-complete + provider-symmetric —
+  NOT precedence immunity, which directory layout cannot buy.
+- **R — `specs/README.md` is ONCE.** Repos own it after first write (melting had already
+  rewritten it; under the old FIXED class the next re-adoption would have silently clobbered it).
+- **S — `~/.claude/agents` is install.sh-owned.** The briefs are composed into the projection
+  (`~/.agents/claude/agents/`) from `adopt/agents/` at install time, and `~/.claude/agents`
+  becomes a symlink into it — created when absent or when a real directory matches the
+  projection; a drifted directory is left and named (reconcile via `--review`).
 
 ## Authority order
 

@@ -1,0 +1,7 @@
+# Managed entries whose CONFLICTS block adoption outright (fail-closed): a security fix
+# colliding with a local edit needs a human decision, never a silent keep or overwrite.
+# Paths are target-repo-relative. Read by adopt-harness/copy.sh.
+.agents/hooks/block-dangerous-bash.sh
+.agents/hooks/block-default-branch-commit.sh
+.agents/hooks/protect-secrets.sh
+.agents/hooks/enforce-gate-on-stop.sh

@@ -2,7 +2,7 @@
 # Acceptance test for Codex hook parity (plan/tasks.md T0.11).
 #
 # Exercises every hook against BOTH providers' real payload shapes, from a real adopted repo so
-# the scripts run from their deployment path (.claude/hooks/), not from the source tree.
+# the scripts run from their deployment path (.agents/hooks/), not from the source tree.
 #
 # The Codex apply_patch envelope modelled here was read off 118 real apply_patch calls in
 # ~/.codex/sessions: a custom_tool_call whose `input` is the raw patch text, whose only
@@ -25,7 +25,7 @@ T="$SB/target"
 mkdir -p "$T" && git -C "$T" init -q -b main && git -C "$T" commit -q --allow-empty -m init
 "$REPO/core/skills/adopt-harness/copy.sh" "$T" python >"$SB/adopt.log" 2>&1 \
   || { echo "copy.sh failed"; cat "$SB/adopt.log"; exit 1; }
-H="$T/.claude/hooks"
+H="$T/.agents/hooks"
 
 KEY="sk-ant-api03-$(printf 'A%.0s' $(seq 32))"   # shape-only; never a real credential
 
@@ -166,7 +166,7 @@ for g in (grp for ev in json.load(open(f"{t}/.codex/hooks.json"))["hooks"].value
         p=subprocess.check_output(["bash","-c",f'echo {h["command"]}'],cwd=sub,text=True).strip()
         assert os.path.isfile(p) and os.access(p,os.X_OK), p
 PY
-RESOLVED="$(cd "$T/src/deep/nested" && bash -c 'echo "$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/hooks/protect-secrets.sh"')"
+RESOLVED="$(cd "$T/src/deep/nested" && bash -c 'echo "$(git rev-parse --path-format=absolute --git-common-dir)/../.agents/hooks/protect-secrets.sh"')"
 run "$RESOLVED" "$(j read "$T/.env")" "$T/src/deep/nested"
 is 2 "a hook invoked through its Codex binding FROM a subdirectory still blocks"
 python3 - "$T" <<'PY' && ok "every Claude binding resolves from a subdirectory too" || no "a Claude binding is dangling"
@@ -190,6 +190,29 @@ echo "provenance"
 grep -q '7687e47a0caa6a75cdf880cf8ae1e258c9dec979' "$REPO/adopt/hooks/protect-secrets.sh" \
   && ok "the harvest blob SHA is RECORDED (marker only — faithfulness verified out-of-band)" \
   || no "harvest provenance not recorded"
+
+echo "route-worktree.sh — worktree names from session input are sanitized (2026-08-21)"
+RW="$T/.agents/hooks/route-worktree.sh"
+mkdir -p "$SB/evil-target"                                   # the container is $SB; this sits beside worktrees/
+printf '%s' '{"name":"../../evil-target"}' >"$SB/payload.json"
+OUT="$(cd "$T" && "$RW" <"$SB/payload.json" 2>"$SB/rw.err")"; RC=$?
+case "$OUT" in
+  *..*) no "a traversal name escaped into the session-root path: $OUT" ;;
+  *)    ok "a traversal name never reaches the path (replaced with a generated name)" ;;
+esac
+if [ "$RC" -eq 0 ]; then
+  # compare physically: mktemp hands out /var/... which is a symlink to /private/var/... on macOS
+  if [ "$(cd "$(dirname "$OUT")" 2>/dev/null && pwd -P)" = "$(cd "$SB/worktrees" && pwd -P)" ]; then
+    ok "…and the session still roots inside the container's worktrees/"
+  else
+    no "…session rooted at $OUT"
+  fi
+fi
+mkdir -p "$SB/worktrees/impostor"
+printf '%s' '{"name":"impostor"}' >"$SB/payload.json"
+( cd "$T" && "$RW" <"$SB/payload.json" >/dev/null 2>&1 ); RC=$?
+[ "$RC" -ne 0 ] && ok "an existing directory that is NOT a registered worktree is refused" \
+  || no "an impostor directory was handed out as a session root"
 
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

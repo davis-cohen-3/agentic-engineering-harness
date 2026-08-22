@@ -36,6 +36,15 @@ is "exits 0" "$(run)" 0
 [ -f "$SB/.agents/.install-manifest.sha256" ] && ok "install manifest written" || no "no install manifest"
 [ -f "$SB/.config/agents/projects.yaml" ] && ok "registry migrated into the absent target" || no "registry not migrated"
 
+echo "the briefs are composed in from adopt/agents/ (single source) and ~/.claude/agents is owned"
+[ -f "$SB/.agents/claude/agents/scout.md" ] && ok "briefs landed in the projection at claude/agents/" \
+  || no "briefs missing from the projection"
+cmp -s "$SB/.agents/claude/agents/scout.md" "$REPO/adopt/agents/scout.md" \
+  && ok "…byte-identical to their single source in adopt/agents/" || no "projection brief drifted from adopt/agents/"
+[ -L "$SB/.claude/agents" ] && ok "~/.claude/agents is a symlink into the projection" \
+  || no "~/.claude/agents not linked"
+[ -f "$SB/.claude/agents/scout.md" ] && ok "…and resolves to the briefs" || no "provider link dangles"
+
 echo "idempotent"
 d1="$(digest "$SB/.agents")"
 is "exits 0" "$(run)" 0
@@ -64,6 +73,18 @@ df1="$(digest "$FM/.agents")"
 is "a second run exits 0" "$(runF)" 0
 is "and is idempotent — identical tree" "$(digest "$FM/.agents")" "$df1"
 [ -d "$FM/.agents.prev" ] && ok "the second run made the backup" || no "no backup after the second run"
+[ -L "$FM/.claude/agents" ] && ok "fresh machine: ~/.claude/agents linked into the projection" \
+  || no "fresh machine: provider link not created"
+
+echo "a drifted ~/.claude/agents real directory is LEFT, never consumed"
+DH="$SB/drift-home"; mkdir -p "$DH/.claude/agents"
+echo "the machine's own scout" >"$DH/.claude/agents/scout.md"
+runD() { HOME="$DH" XDG_CONFIG_HOME="$DH/.config" "$REPO/install.sh" "$@" >"$SB/out" 2>&1; echo $?; }
+is "exits 0" "$(runD)" 0
+[ -L "$DH/.claude/agents" ] && no "a drifted directory was replaced by the link" \
+  || ok "left as a real directory"
+grep -q "the machine's own scout" "$DH/.claude/agents/scout.md" && ok "…its content untouched" || no "content lost"
+outhas 'differs from the projection' && ok "…and the drift is NAMED" || no "drift not reported"
 
 echo "refuses on a hand-edited projection"
 printf '\nhand edit\n' >>"$SB/.agents/skills/docs-drift/SKILL.md"

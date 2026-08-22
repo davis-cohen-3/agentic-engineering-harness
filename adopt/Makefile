@@ -20,11 +20,31 @@ GATE_STEPS ?= gate-unconfigured
 # in a fresh worktree or sandbox clone. The overlay sets SETUP_STEPS; default none.
 SETUP_STEPS ?=
 
-.PHONY: check setup gate-unconfigured $(GATE_STEPS) $(SETUP_STEPS)
+.PHONY: check setup gate-unconfigured harness-canary $(GATE_STEPS) $(SETUP_STEPS)
 
 # The one command everything points at. Fails fast on the first red step.
-check: $(GATE_STEPS)
+check: harness-canary $(GATE_STEPS)
 	@echo "✅ quality gate passed — this is what 'done' means"
+
+# Canary for the adapter layout (.agents/ home, .claude/ symlinks). The symlink resolution it
+# guards is UNDOCUMENTED Claude behavior (verified 2.1.223) and silently mangled by a clone with
+# core.symlinks=false — either failure would load zero skills without a word. No-op in a repo
+# that has not adopted the neutral-root layout (no .agents/MANIFEST).
+harness-canary:
+	@test ! -f .agents/MANIFEST || { \
+	  { test -L .claude/skills && test -e .claude/skills; } \
+	    || { echo "✗ .claude/skills is not a resolving symlink to .agents/skills"; exit 1; }; \
+	  bad=$$(find .claude/agents -maxdepth 1 -type l ! -exec test -e {} \; -print 2>/dev/null); \
+	  test -z "$$bad" || { echo "✗ dangling agent symlink(s):"; echo "$$bad" | sed 's/^/    /'; exit 1; }; \
+	  ls .agents/hooks/*.sh >/dev/null 2>&1 \
+	    || { echo "✗ no hook scripts at .agents/hooks/"; exit 1; }; \
+	  for h in $$(grep -ho '\.agents/hooks/[A-Za-z0-9._-]*\.sh' .claude/settings.json .claude/settings.local.json .codex/hooks.json 2>/dev/null | sort -u); do \
+	    test -x "$$h" || { echo "✗ a binding names $$h but it is missing or not executable"; exit 1; }; \
+	  done; \
+	  for h in $$(grep -ho '\.claude/hooks/[A-Za-z0-9._-]*\.sh' .claude/settings.json .claude/settings.local.json .codex/hooks.json 2>/dev/null | sort -u); do \
+	    test -e "$$h" || { echo "✗ a binding still points at the old home: $$h (missing)"; exit 1; }; \
+	  done; \
+	  echo "→ harness canary: adapters resolve, hooks present"; }
 
 # Run once per fresh clone/worktree before the gate or the app. Idempotent.
 setup: $(SETUP_STEPS)

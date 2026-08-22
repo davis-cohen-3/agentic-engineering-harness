@@ -25,4 +25,4 @@ absent. The fewer a repo must fill, the more ergonomic the harness.
 The base must reach autonomous/cloud runs on a fresh clone — the day-one test: a cloud run gets
 the repo's `.claude`, never your `~/.claude`. So the base is **vendored** into each repo (via
 `adopt-harness`), which is why "what travels" is pinned in one place: the manifest in
-`.claude/skills/adopt-harness/copy.sh`.
+`core/skills/adopt-harness/copy.sh`.

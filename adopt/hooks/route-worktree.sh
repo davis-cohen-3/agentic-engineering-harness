@@ -24,6 +24,14 @@ if command -v jq >/dev/null 2>&1; then
 fi
 [ -n "$name" ] || name="wt-$(date +%s)-$$"   # no jq or no name: still isolate, generic name
 
+# The name arrives from session input, which prompt-injected content can steer. It is ONE path
+# component or it is replaced: a traversal like ../../<existing-dir> would otherwise hit the
+# reuse branch below and root the new session at an arbitrary directory (found 2026-08-21).
+case "$name" in
+  .*|*/*|*\\*) err "invalid worktree name '$name' — using a generated one"
+               name="wt-$(date +%s)-$$" ;;
+esac
+
 main_gitdir="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
   || { err "not a git repository — cannot create a worktree"; exit 1; }
 main_root="$(dirname "$main_gitdir")"
@@ -32,11 +40,18 @@ root="$(dirname "$main_root")/worktrees"
 mkdir -p "$root" 2>/dev/null || { root="$main_root/.claude/worktrees"; mkdir -p "$root" || exit 1; }
 dir="$root/$name"
 
-# Reuse-by-name, as the default does: an existing directory is opened, not recreated.
+# Reuse-by-name, as the default does — but only a directory git KNOWS as a worktree. A
+# directory that merely exists at that path is not a session root we hand out.
 if [ -d "$dir" ]; then
-  err "reusing existing worktree $dir"
-  printf '%s\n' "$dir"
-  exit 0
+  phys="$(cd "$dir" 2>/dev/null && pwd -P)"
+  if git -C "$main_root" worktree list --porcelain 2>/dev/null \
+       | grep -q -e "^worktree $dir\$" -e "^worktree ${phys:-$dir}\$"; then
+    err "reusing existing worktree $dir"
+    printf '%s\n' "$dir"
+    exit 0
+  fi
+  err "$dir exists but is not a registered worktree — refusing to open a session there"
+  exit 1
 fi
 
 # Base ref mirrors the default "fresh" behaviour (and wt's rule): the remote default branch,

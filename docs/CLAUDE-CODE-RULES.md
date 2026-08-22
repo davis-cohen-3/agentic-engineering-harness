@@ -49,7 +49,7 @@ why this guide lives in `docs/` rather than in `rules/` itself.
 | a standard you want as its own always-on file | **`.claude/rules/`** (no `paths:`) | modular; same cost as the floor, cleaner to maintain |
 | advisory · scoped to a file-type/area | **`.claude/rules/` + `paths:`** | declarative, automatic, off-budget until a matching file is touched |
 | procedural ("how to do task Y") | **a skill** (`.claude/skills/`) | model-invoked by description; carries process steps |
-| must hold regardless of what the model decides | **a hook** (`.claude/hooks/`) | deterministic; survives `--dangerously-skip-permissions` |
+| must hold regardless of what the model decides | **a hook** (`.agents/hooks/`, bound per provider) | deterministic; survives `--dangerously-skip-permissions` |
 | deep reference (architecture, glossary, decisions) | **`docs/`** | read on demand when orienting; too big for always-on |
 
 ## Don't

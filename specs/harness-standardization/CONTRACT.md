@@ -283,18 +283,23 @@ core/                      → ~/.agents/
   skills/                  shared — both providers read SKILL.md
   hooks/                   inject-global-rules.sh only (see K)
   rules/                   injected by inject-global-rules.sh
-  claude/agents/           4 × .md + frontmatter
-  codex/agents/            4 × .toml + developer_instructions
+  (claude/agents/ is COMPOSED at install time from adopt/agents/ — the briefs'
+   single source; nothing agent-shaped is duplicated inside the repo)
 
-adopt/                     → a target repo
+adopt/                     → a target repo, homed at the provider-neutral .agents/ root
   AGENTS.template.md       → AGENTS.md — THE profile (see L)
   CLAUDE.template.md       → CLAUDE.md — a stub that @AGENTS.md
-  hooks/                   → .claude/hooks/ — one copy, two bindings (see K); exception:
+  hooks/                   → .agents/hooks/ — one copy, two bindings (see K); exception:
                              route-worktree.sh is Claude-only (Codex has no WorktreeCreate
                              event and no observable worktree-placement knob)
+  agents/                  → .agents/briefs/ — the briefs; .claude/agents/*.md are SYMLINKS
+                             copy.sh creates to them (verified 2.1.223; the gate canary guards it)
+  codex/agents/            → .codex/agents/ — pointer tomls; developer_instructions reads the
+                             brief at .agents/briefs/<x>.md (verified codex-cli 0.147.0, 3/3)
   settings.json            → .claude/settings.local.json (Claude binding — MERGED, keyed by
                              event+script; the team's settings.json is read for dedup, never written)
   codex/hooks.json         → .codex/hooks.json       (Codex binding — MERGED the same way)
+  CRITICAL                 the managed entries whose conflicts fail closed
   docs/                    → docs/ — INDEX.md, architecture.md, glossary.md, adrs/ (see §4)
   Makefile, make/, specs/
 ```
@@ -309,8 +314,12 @@ dangles in every worktree (observed live in smoke's Conductor workspaces, 2026-0
 Machine-wide registration of the safety hooks is deferred, so Wave 1 T1.8 is descoped.
 Also, a repo never carries a second copy of its profile — see decision L.
 
-Agent formats differ per provider, so the four agents exist as eight files. Any change to an agent
-touches both.
+⚠ **Amended 2026-08-21 (neutral root).** The four agents are ONE text each, homed at
+`.agents/briefs/` in an adopted repo and single-sourced from `adopt/agents/` in this repo.
+Claude reads them through per-file symlinks, Codex through pointer tomls — the byte-parity gate
+test is retired because there is no second copy to police. Update semantics for everything
+copy.sh manages are the ratified three-way MANIFEST
+(`specs/harness-standardization/research/UPDATE-SEMANTICS-PROPOSAL-2026-08.md`).
 
 **`install.sh`** builds into a temp tree and swaps; keeps one backup (`~/.agents.prev`); is
 idempotent; **prunes only with `--prune`**; **refuses to run when a file in `~/.agents/` differs from
@@ -326,13 +335,16 @@ machine-side extra and drift with a per-file disposition (*import / prune / leav
 read-only survey of the non-symlinked provider locations so provider-shipped novelties are
 visible. **`--prune` never runs blind**: a review pass precedes it, always.
 
-**`adopt-harness/copy.sh`** copies `adopt/`, creates the `.agents/skills → .claude/skills` symlink
-that Codex requires, and installs both providers' hook bindings. It no longer copies
+**`adopt-harness/copy.sh`** copies `adopt/` into the `.agents/` home, creates the adapter
+symlinks (`.claude/skills → .agents/skills`, `.claude/agents/*.md → .agents/briefs/*.md`), and
+installs both providers' hook bindings. It migrates a pre-neutral-root repo in place (inverts the
+old skills link, removes unmodified `.claude/hooks/` copies, moves the stamp). It no longer copies
 `.claude/FLOOR.md`, `agent_docs/`, `spec.thoughts.md`, `spec.sessions/`, or `*.context.md`.
 
-Scaffolding is copied unconditionally; anything a repo fills in — `CLAUDE.md`, `AGENTS.md`,
-`make/gate.mk`, and both binding files — is written **only when absent**, so re-adoption can never
-undo filled-in work.
+Anything a repo fills in — `CLAUDE.md`, `AGENTS.md`, `make/gate.mk`, `specs/README.md`, the
+`docs/` scaffolds — is written **only when absent**. Everything else copy.sh places is MANAGED:
+three-way updated against the pristine hash in `.agents/MANIFEST` (refresh / held / loud
+conflict, resolved per path with `--resolve`), with `adopt/CRITICAL` entries failing closed.
 
 `Makefile:install-global` is retired.
 

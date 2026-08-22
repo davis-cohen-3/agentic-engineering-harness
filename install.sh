@@ -86,6 +86,18 @@ extras_fingerprint() {
 [ -d "$SRC" ] || die "no core/ payload at $SRC"
 command -v shasum >/dev/null || die "shasum not found"
 
+# ── Compose the effective source: core/ plus the subagent briefs, which are single-sourced
+# from adopt/agents/ (the same files copy.sh ships to repos) rather than duplicated in core/.
+# Everything downstream — classification, refusal, manifest — sees one coherent tree.
+COMPOSED="$(mktemp -d "${TMPDIR:-/tmp}/agents-src.XXXXXX")"
+trap 'rm -rf "$COMPOSED"' EXIT
+(cd "$SRC" && tar cf - .) | (cd "$COMPOSED" && tar xf -)
+if ls "$REPO"/adopt/agents/*.md >/dev/null 2>&1; then
+  mkdir -p "$COMPOSED/claude/agents"
+  cp -p "$REPO"/adopt/agents/*.md "$COMPOSED/claude/agents/"
+fi
+SRC="$COMPOSED"
+
 # ~/.agents must be a real directory. The swap below replaces the whole tree, so a symlink here is
 # consumed and its target's files are silently adopted as machine-wide extras. Provider homes
 # symlink INTO ~/.agents, never the reverse (CONTRACT §5) — and ~/.claude is that exact shape
@@ -143,7 +155,7 @@ step "Plan"
 # rename is only atomic within one filesystem. $TMPDIR is a separate mount often enough (tmpfs
 # /tmp, containers, a network-mounted $HOME) that relying on them matching is a portability bug.
 rm -rf "$HOME"/.agents.staging.* 2>/dev/null || true   # a hard kill can leave one behind
-tmpd="$(mktemp -d "$HOME/.agents.staging.XXXXXX")"; trap 'rm -rf "$tmpd"' EXIT
+tmpd="$(mktemp -d "$HOME/.agents.staging.XXXXXX")"; trap 'rm -rf "$tmpd" "$COMPOSED"' EXIT
 : >"$tmpd/add"; : >"$tmpd/update" ; : >"$tmpd/same"; : >"$tmpd/edited"; : >"$tmpd/extra"
 
 have_manifest=0
@@ -211,9 +223,16 @@ if [ "$REVIEW" -eq 1 ]; then
     if [ ! -L "$DEST/$1" ] && grep -qIE "$SECRET_RE" "$DEST/$1" 2>/dev/null; then
       say "    ✗ import refused: contains what looks like a secret — left in place"; return 1
     fi
-    mkdir -p "$SRC/$(dirname "$1")"
-    cp -Pp "$DEST/$1" "$SRC/$1"
-    say "    imported → core/$1  (uncommitted in the repo — ship it by PR)"
+    # The composed source is a temp view; imports land in the REPO — briefs at their
+    # single source (adopt/agents/), everything else in core/.
+    local repo_dst
+    case "$1" in
+      claude/agents/*) repo_dst="$REPO/adopt/agents/$(basename "$1")" ;;
+      *)               repo_dst="$REPO/core/$1" ;;
+    esac
+    mkdir -p "$(dirname "$repo_dst")"
+    cp -Pp "$DEST/$1" "$repo_dst"
+    say "    imported → ${repo_dst#"$REPO"/}  (uncommitted in the repo — ship it by PR)"
   }
 
   if [ "$((n_edit + n_extra))" -eq 0 ]; then
@@ -376,6 +395,38 @@ if [ -f "$REPO/bin/wt" ]; then
   case ":$PATH:" in *":$BIN_DIR:"*) ;; *) say "  ⚠ $BIN_DIR is not on PATH" ;; esac
 else
   say "  ✗ $REPO/bin/wt not found — skipped"
+fi
+
+# ── Provider adapter: ~/.claude/agents is install.sh-owned (decision, 2026-08-21) — a symlink
+# into the projection, so the briefs load in every repo and update with every install. A real
+# directory whose files all match the projection is upgraded to the link; one with its own
+# content is left and named (--review surveys it; reconcile there first).
+step "Provider adapter — ~/.claude/agents"
+PA="$HOME/.claude/agents"
+if [ -L "$PA" ]; then
+  case "$(readlink "$PA")" in
+    "$DEST/claude/agents") say "  already linked → $DEST/claude/agents" ;;
+    *) say "  ⚠ symlink points elsewhere ($(readlink "$PA")) — left it" ;;
+  esac
+elif [ -d "$PA" ]; then
+  drift=0
+  while IFS= read -r f; do
+    rel="${f#"$PA"/}"
+    cmp -s "$f" "$DEST/claude/agents/$rel" 2>/dev/null || { drift=1; say "  ⚠ $rel differs from the projection"; }
+  done < <(find "$PA" -type f)
+  if [ "$drift" -eq 0 ]; then
+    rm -rf "$PA"
+    ln -s "$DEST/claude/agents" "$PA"
+    say "  real directory matched the projection — replaced with the symlink"
+  else
+    say "  left as a real directory — reconcile the drift (install.sh --review), then re-run"
+  fi
+elif [ -d "$DEST/claude/agents" ]; then
+  mkdir -p "$HOME/.claude"
+  ln -s "$DEST/claude/agents" "$PA"
+  say "  linked → $DEST/claude/agents"
+else
+  say "  projection has no claude/agents — nothing to link"
 fi
 
 # ── Registry: migrate only into an absent target, never over an existing one.
