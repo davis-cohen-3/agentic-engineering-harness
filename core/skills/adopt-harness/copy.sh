@@ -195,7 +195,35 @@ echo "→ adopting harness from $ROOT into $TARGET"
 if [ -L "$TARGET/.agents/skills" ]; then
   rm "$TARGET/.agents/skills"     # the old inverse link; its target dir is handled next
 fi
-if [ -L "$TARGET/.claude/skills" ]; then
+# A repo may TRACK its skills at .claude/skills. Moving that home stages a deletion of every
+# tracked file in it — on a repo you may not own, one commit-everything away from erasing them.
+# Git tracking is the signal: it says the team, not the harness, owns that path. Found in the
+# wild 2026-08-22 (smoke: 17 tracked files under .claude/skills would have been staged deleted).
+tracked_in() { git -C "$TARGET" ls-files "$1" 2>/dev/null | head -1; }
+c_tracked=""; a_tracked=""
+if command -v git >/dev/null 2>&1 && git -C "$TARGET" rev-parse --git-dir >/dev/null 2>&1; then
+  c_tracked="$(tracked_in .claude/skills)"
+  a_tracked="$(tracked_in .agents/skills)"
+fi
+
+if [ -n "$c_tracked" ] && [ -n "$a_tracked" ]; then
+  # Both homes hold tracked files. Neither direction is safe — either one stages deletions.
+  # Leave both exactly as they are and say so; reconciling a duplicated skill is the repo's call.
+  note "⚠ BOTH .claude/skills and .agents/skills hold git-TRACKED files — neither home was touched."
+  note "  Moving either would stage its files for deletion. Reconcile them in the repo, then re-run."
+elif [ -n "$c_tracked" ]; then
+  # The repo owns .claude/skills. Keep it as the real home and point .agents/skills at it — the
+  # pre-neutral-root arrangement: Codex scans .agents/skills and follows the link.
+  if [ -e "$TARGET/.agents/skills" ] && [ ! -L "$TARGET/.agents/skills" ]; then
+    (cd "$TARGET/.agents/skills" && tar cf - .) | (cd "$TARGET/.claude/skills" && tar xf -)
+    rm -rf "$TARGET/.agents/skills"
+  fi
+  [ -L "$TARGET/.agents/skills" ] && rm -f "$TARGET/.agents/skills"
+  mkdir -p "$TARGET/.agents"
+  ln -s ../.claude/skills "$TARGET/.agents/skills"
+  note "→ .claude/skills holds git-TRACKED files — left as the home; .agents/skills → ../.claude/skills"
+  note "  (moving it would stage those files for deletion; the repo owns that path, not the harness)"
+elif [ -L "$TARGET/.claude/skills" ]; then
   mkdir -p "$TARGET/.agents/skills"   # the link's intended home; harmless if it points elsewhere
 elif [ -d "$TARGET/.claude/skills" ]; then
   mkdir -p "$TARGET/.agents/skills"

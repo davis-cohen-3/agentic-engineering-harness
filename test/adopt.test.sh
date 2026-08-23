@@ -370,6 +370,37 @@ echo deadbeef >"$T6/.claude/harness-version"                    # the old stamp 
 grep -q '# melting-style local tuning' "$T6/.agents/hooks/ensure-workspace.sh" \
   && ok "an EDITED old-home hook carried its edits to .agents/hooks/ — behavior preserved" \
   || no "the edited hook was replaced by the harness version"
+
+echo "a repo that git-TRACKS .claude/skills keeps it as the home"
+# Found in the wild 2026-08-22: smoke tracks its skills at .claude/skills. The inversion would
+# have staged 17 tracked files for deletion on a repo the operator does not administer.
+T7="$SB/target7"; mkdir -p "$T7/.claude/skills/teamskill"
+git -C "$T7" init -q
+echo "team skill" >"$T7/.claude/skills/teamskill/SKILL.md"
+git -C "$T7" add -A >/dev/null 2>&1
+git -C "$T7" -c user.email=t@t -c user.name=t commit -qm init >/dev/null 2>&1
+"$MCP" "$T7" none >"$SB/tw12" 2>&1 || no "tracked-skills adoption failed: $(tail -5 "$SB/tw12")"
+[ -d "$T7/.claude/skills" ] && [ ! -L "$T7/.claude/skills" ] \
+  && ok "the TRACKED .claude/skills stayed a real directory" || no "a tracked skills home was moved"
+[ -L "$T7/.agents/skills" ] && [ -e "$T7/.agents/skills" ] \
+  && ok "…and .agents/skills points at it, so Codex still resolves" || no ".agents/skills is not a resolving link"
+[ -f "$T7/.claude/skills/teamskill/SKILL.md" ] && ok "…the team's skill file survived" || no "tracked skill lost"
+[ -z "$(git -C "$T7" status --porcelain | grep "^ *D")" ] \
+  && ok "…and NOTHING tracked was staged for deletion" || no "adoption staged a deletion of tracked files"
+grep -q "TRACKED files" "$SB/tw12" && ok "…and it said why" || no "the refusal was silent"
+
+echo "when BOTH skills homes are tracked, neither is touched"
+T8="$SB/target8"; mkdir -p "$T8/.claude/skills/a" "$T8/.agents/skills/b"
+git -C "$T8" init -q
+echo "a" >"$T8/.claude/skills/a/SKILL.md"; echo "b" >"$T8/.agents/skills/b/SKILL.md"
+git -C "$T8" add -A >/dev/null 2>&1
+git -C "$T8" -c user.email=t@t -c user.name=t commit -qm init >/dev/null 2>&1
+"$MCP" "$T8" none >"$SB/tw13" 2>&1 || true
+[ -f "$T8/.claude/skills/a/SKILL.md" ] && [ -f "$T8/.agents/skills/b/SKILL.md" ] \
+  && ok "both tracked homes were left intact" || no "a tracked skills home was clobbered"
+[ -z "$(git -C "$T8" status --porcelain | grep "^ *D")" ] \
+  && ok "…and nothing was staged for deletion" || no "adoption staged a deletion"
+grep -q "BOTH" "$SB/tw13" && ok "…and the ambiguity was named" || no "the two-home case was silent"
 [ ! -d "$T6/.claude/hooks" ] && ok "…and the emptied .claude/hooks/ is gone" || no ".claude/hooks/ left behind"
 grep -q 'Repo-tuned addendum' "$T6/.agents/briefs/reviewer.md" && [ -L "$T6/.claude/agents/reviewer.md" ] \
   && ok "a TUNED brief carried its edits to .agents/briefs/ and got the symlink" \
