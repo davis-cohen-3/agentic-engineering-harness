@@ -397,37 +397,86 @@ else
   say "  ✗ $REPO/bin/wt not found — skipped"
 fi
 
-# ── Provider adapter: ~/.claude/agents is install.sh-owned (decision, 2026-08-21) — a symlink
-# into the projection, so the briefs load in every repo and update with every install. A real
-# directory whose files all match the projection is upgraded to the link; one with its own
-# content is left and named (--review surveys it; reconcile there first).
-step "Provider adapter — ~/.claude/agents"
-PA="$HOME/.claude/agents"
-if [ -L "$PA" ]; then
-  case "$(readlink "$PA")" in
-    "$DEST/claude/agents") say "  already linked → $DEST/claude/agents" ;;
-    *) say "  ⚠ symlink points elsewhere ($(readlink "$PA")) — left it" ;;
-  esac
-elif [ -d "$PA" ]; then
-  drift=0
-  while IFS= read -r f; do
-    rel="${f#"$PA"/}"
-    cmp -s "$f" "$DEST/claude/agents/$rel" 2>/dev/null || { drift=1; say "  ⚠ $rel differs from the projection"; }
-  done < <(find "$PA" -type f)
-  if [ "$drift" -eq 0 ]; then
-    rm -rf "$PA"
-    ln -s "$DEST/claude/agents" "$PA"
-    say "  real directory matched the projection — replaced with the symlink"
+# ── Provider adapter: these provider surfaces are install.sh-owned (decision, 2026-08-21;
+# extended to skills, 2026-08-25) — symlinks into the projection, so the briefs and skills load
+# in every repo and update with every install. Linking skills is what keeps a personal skill out
+# of every product repo's working tree: it lives in core/, not in a checkout. A real directory
+# whose files all match the projection is upgraded to the link; one with its own content is left
+# and named (--review surveys it; reconcile there first).
+link_provider_surface() {  # $1 = link path, $2 = projection subdir
+  local PA="$1" SRC="$DEST/$2"
+  step "Provider adapter — ~${PA#"$HOME"}"
+  if [ -L "$PA" ]; then
+    case "$(readlink "$PA")" in
+      "$SRC") say "  already linked → $SRC" ;;
+      *) say "  ⚠ symlink points elsewhere ($(readlink "$PA")) — left it" ;;
+    esac
+  elif [ -d "$PA" ]; then
+    local drift=0 f rel
+    while IFS= read -r f; do
+      rel="${f#"$PA"/}"
+      cmp -s "$f" "$SRC/$rel" 2>/dev/null || { drift=1; say "  ⚠ $rel differs from the projection"; }
+    done < <(find "$PA" -type f)
+    if [ "$drift" -eq 0 ]; then
+      rm -rf "$PA"
+      ln -s "$SRC" "$PA"
+      say "  real directory matched the projection — replaced with the symlink"
+    else
+      say "  left as a real directory — reconcile the drift (install.sh --review), then re-run"
+    fi
+  elif [ -d "$SRC" ]; then
+    mkdir -p "$(dirname "$PA")"
+    ln -s "$SRC" "$PA"
+    say "  linked → $SRC"
   else
-    say "  left as a real directory — reconcile the drift (install.sh --review), then re-run"
+    say "  projection has no $2 — nothing to link"
   fi
-elif [ -d "$DEST/claude/agents" ]; then
-  mkdir -p "$HOME/.claude"
-  ln -s "$DEST/claude/agents" "$PA"
-  say "  linked → $DEST/claude/agents"
-else
-  say "  projection has no claude/agents — nothing to link"
-fi
+}
+
+# Skills are linked one at a time, never by claiming the whole directory. A provider ships its
+# own skills into that path — Codex populates ~/.codex/skills/.system/ — so replacing the
+# directory with a link would delete them, and refusing on their presence would mean the harness
+# never installs a skill there at all. Per-skill links coexist with whatever the provider owns.
+link_skills_into() {  # $1 = provider skills dir
+  local PD="$1" SRC="$DEST/skills" name e
+  step "Provider adapter — ~${PD#"$HOME"}"
+  [ -d "$SRC" ] || { say "  projection has no skills — nothing to link"; return; }
+  if [ -L "$PD" ]; then
+    # An earlier whole-directory link of ours. Converge it on per-skill links so both providers
+    # end in the same shape and neither keeps a claim on the whole surface.
+    case "$(readlink "$PD")" in
+      "$SRC") rm -f "$PD"; say "  whole-directory link replaced by per-skill links" ;;
+      *)      say "  ⚠ symlink points elsewhere ($(readlink "$PD")) — left it"; return ;;
+    esac
+  fi
+  mkdir -p "$PD"
+  local n=0 kept=0
+  for d in "$SRC"/*/; do
+    [ -d "$d" ] || continue
+    name="$(basename "$d")"; e="$PD/$name"
+    if [ -L "$e" ]; then
+      [ "$(readlink "$e")" = "$SRC/$name" ] || { say "  ⚠ $name links outside the projection — left it"; kept=$((kept+1)); continue; }
+    elif [ -e "$e" ]; then
+      say "  ⚠ $name exists and is not a link — left it (provider- or hand-owned)"; kept=$((kept+1)); continue
+    else
+      ln -s "$SRC/$name" "$e"
+    fi
+    n=$((n+1))
+  done
+  # A skill dropped from core/ leaves a dangling link that the provider still lists.
+  local stale=0
+  for e in "$PD"/*; do
+    [ -L "$e" ] || continue
+    case "$(readlink "$e")" in "$SRC"/*) [ -e "$e" ] || { rm -f "$e"; stale=$((stale+1)); } ;; esac
+  done
+  say "  $n skill(s) linked → $SRC$([ "$kept" -gt 0 ] && echo ", $kept left alone")$([ "$stale" -gt 0 ] && echo ", $stale stale link(s) removed")"
+}
+
+link_provider_surface "$HOME/.claude/agents" "claude/agents"
+# Both providers read the SAME skills tree — one source, two entry points. A skill that only one
+# provider should see does not belong in core/.
+link_skills_into "$HOME/.claude/skills"
+link_skills_into "$HOME/.codex/skills"
 
 # ── Registry: migrate only into an absent target, never over an existing one.
 step "Registry"

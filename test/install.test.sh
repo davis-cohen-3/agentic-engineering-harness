@@ -45,6 +45,29 @@ cmp -s "$SB/.agents/claude/agents/scout.md" "$REPO/adopt/agents/scout.md" \
   || no "~/.claude/agents not linked"
 [ -f "$SB/.claude/agents/scout.md" ] && ok "…and resolves to the briefs" || no "provider link dangles"
 
+echo "both providers reach the ONE projected skills tree, per skill"
+for pv in .claude .codex; do
+  [ -L "$SB/$pv/skills/tdd" ] && ok "~/$pv/skills/tdd is a per-skill symlink" \
+    || no "~/$pv/skills/tdd not linked"
+  [ -f "$SB/$pv/skills/tdd/SKILL.md" ] && ok "…and resolves to the skill" || no "~/$pv/skills/tdd dangles"
+done
+is "…and both resolve to the same tree" "$(cd "$SB/.claude/skills/tdd" && pwd -P)" "$(cd "$SB/.codex/skills/tdd" && pwd -P)"
+
+echo "a provider's OWN skills survive — the harness links beside them, never over them"
+PS="$SB/provider-home"; mkdir -p "$PS/.codex/skills/.system/imagegen" "$PS/.codex/skills/mine"
+echo "vendor" >"$PS/.codex/skills/.system/imagegen/SKILL.md"
+echo "hand-written" >"$PS/.codex/skills/mine/SKILL.md"
+runP() { HOME="$PS" XDG_CONFIG_HOME="$PS/.config" "$REPO/install.sh" "$@" >"$SB/out" 2>&1; echo $?; }
+is "exits 0" "$(runP)" 0
+grep -q vendor "$PS/.codex/skills/.system/imagegen/SKILL.md" && ok "provider-shipped .system/ untouched" || no ".system/ clobbered"
+grep -q hand-written "$PS/.codex/skills/mine/SKILL.md" && ok "a hand-owned skill dir untouched" || no "hand-owned skill clobbered"
+[ -f "$PS/.codex/skills/tdd/SKILL.md" ] && ok "…and the harness skills linked in beside them" || no "harness skills not linked"
+
+echo "a skill dropped from core/ does not leave a dangling link the provider still lists"
+ln -s "$PS/.agents/skills/gone" "$PS/.codex/skills/gone"
+is "exits 0" "$(runP)" 0
+[ -L "$PS/.codex/skills/gone" ] && no "stale link left behind" || ok "stale link pruned"
+
 echo "idempotent"
 d1="$(digest "$SB/.agents")"
 is "exits 0" "$(run)" 0
@@ -75,6 +98,10 @@ is "and is idempotent — identical tree" "$(digest "$FM/.agents")" "$df1"
 [ -d "$FM/.agents.prev" ] && ok "the second run made the backup" || no "no backup after the second run"
 [ -L "$FM/.claude/agents" ] && ok "fresh machine: ~/.claude/agents linked into the projection" \
   || no "fresh machine: provider link not created"
+[ -f "$FM/.codex/skills/tdd/SKILL.md" ] && ok "fresh machine: ~/.codex/skills linked (dir created from nothing)" \
+  || no "fresh machine: codex skills link not created"
+[ -f "$FM/.claude/skills/daily-brief/collect.sh" ] && ok "fresh machine: daily-brief reachable from ~/.claude/skills" \
+  || no "fresh machine: daily-brief not reachable"
 
 echo "a drifted ~/.claude/agents real directory is LEFT, never consumed"
 DH="$SB/drift-home"; mkdir -p "$DH/.claude/agents"
