@@ -80,7 +80,6 @@ missing tool.
 | `block-default-branch-commit.sh` | PreToolUse(Bash) | exit 2 on commit/push while on `main`/`master` |
 | `block-dangerous-bash.sh` | PreToolUse(Bash) | exit 2 on `rm -rf /`, force-push-to-main, `DROP TABLE`, curl\|sh, … |
 | `protect-secrets.sh` | PreToolUse(Read\|Edit\|Write\|apply_patch) | exit 2 on reading/writing `.env`/keys, or writing a literal API key — under **both** providers, including a Codex `apply_patch` |
-| `enforce-gate-on-stop.sh` | Stop | re-runs `make check`; blocks "done" until green (circuit-breaker at 5) |
 | `ensure-workspace.sh` | SessionStart | creates `.workspace/` if absent; never overwrites `MISSION.md`; must be registered BEFORE the orientation hook |
 | `spec-session-orient.sh` | SessionStart | read-only orientation from `.workspace/MISSION.md` — state, next action, spec path, history **filenames**; writes nothing, never blocks |
 

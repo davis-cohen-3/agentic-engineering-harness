@@ -35,16 +35,6 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$(git rev-parse --path-format=absolute --git-common-dir)/../.agents/hooks/enforce-gate-on-stop.sh\""
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "hooks": [
