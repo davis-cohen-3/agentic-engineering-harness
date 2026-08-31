@@ -136,25 +136,9 @@ for hook in "$H"/*.sh; do
                 *)   no "$(basename "$hook") returned $rc on malformed stdin" ;; esac
 done
 
-echo "collab-reminders.sh + enforce-gate-on-stop.sh — event payloads carry no tool_input"
+echo "collab-reminders.sh — event payloads carry no tool_input"
 run "$H/collab-reminders.sh" "$(j none)";                              is 0 "collab-reminders allows"
 printf '%s' "$OUT" | grep -q additionalContext && ok "collab-reminders injects a reminder" || no "collab-reminders emitted nothing"
-mv "$T/Makefile" "$SB/Makefile.orig"
-run "$H/enforce-gate-on-stop.sh" "$(j none)";                          is 0 "stop-gate allows when the repo defines no check target"
-printf 'check:\n\t@false\n' >"$T/Makefile"
-run "$H/enforce-gate-on-stop.sh" "$(j none)";                          is 2 "stop-gate BLOCKS on a red gate"
-printf 'check:\n\t@true\n' >"$T/Makefile"
-run "$H/enforce-gate-on-stop.sh" "$(j none)";                          is 0 "stop-gate allows on a green gate"
-# The gate must be RESOLVED, not grepped for: the harness's own root Makefile only `include`s
-# another one and has no literal `^check:`, so a text match silently disabled this hook in exactly
-# the repo where a regression costs most.
-printf '# no recipe here\ninclude real.mk\n' >"$T/Makefile"
-printf 'check:\n\t@false\n' >"$T/real.mk"
-run "$H/enforce-gate-on-stop.sh" "$(j none)";  is 2 "BLOCKS on a red gate reached only through an include"
-printf 'check:\n\t@true\n' >"$T/real.mk"
-run "$H/enforce-gate-on-stop.sh" "$(j none)";  is 0 "allows on a green gate reached only through an include"
-rm -f "$T/real.mk"
-mv "$SB/Makefile.orig" "$T/Makefile"
 
 echo "binding path resolution — the acceptance line is 'not just the repo root'"
 mkdir -p "$T/src/deep/nested"

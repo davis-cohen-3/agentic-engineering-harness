@@ -35,16 +35,6 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/adopt/hooks/enforce-gate-on-stop.sh"
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "hooks": [

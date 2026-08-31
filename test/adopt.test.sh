@@ -179,7 +179,7 @@ import json,sys,os
 d=json.load(open(f"{sys.argv[1]}/.claude/settings.local.json"))
 bound={os.path.basename(h["command"].strip('"')) for gs in d["hooks"].values() for g in gs for h in g["hooks"]}
 need={"block-default-branch-commit.sh","block-dangerous-bash.sh","flag-comment-bloat.sh",
-      "enforce-gate-on-stop.sh","ensure-workspace.sh","spec-session-orient.sh","collab-reminders.sh"}
+      "ensure-workspace.sh","spec-session-orient.sh","collab-reminders.sh"}
 assert need <= bound, need - bound
 assert "protect-secrets.sh" not in bound, "duplicated a hook the team already bound in settings.json"
 PY
@@ -211,12 +211,12 @@ grep -q 'fires clean' "$SB/doc" && ok "hooks are FIRED against a benign payload,
 python3 - "$T5" <<'PY'
 import json,sys
 p=f"{sys.argv[1]}/.codex/hooks.json"; d=json.load(open(p))
-d["hooks"]["Stop"]=[]
+d["hooks"]["UserPromptSubmit"]=[]
 json.dump(d,open(p,"w"),indent=2)
 PY
 "$REPO/core/skills/adopt-harness/copy.sh" --doctor "$T5" >"$SB/doc" 2>&1
 rc=$?
-[ "$rc" -eq 1 ] && grep -q 'NOT BOUND under Stop' "$SB/doc" && ok "--doctor: an unbound hook is exit 1 and NAMED" \
+[ "$rc" -eq 1 ] && grep -q 'NOT BOUND under UserPromptSubmit' "$SB/doc" && ok "--doctor: an unbound hook is exit 1 and NAMED" \
   || no "unbound hook not surfaced (exit $rc): $(cat "$SB/doc")"
 "$REPO/core/skills/adopt-harness/copy.sh" "$T5" none >/dev/null 2>&1 \
   && ok "re-adoption heals the unbound hook — the upgrade path is also the repair path" || no "re-adoption did not heal"

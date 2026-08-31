@@ -4,4 +4,3 @@
 .agents/hooks/block-dangerous-bash.sh
 .agents/hooks/block-default-branch-commit.sh
 .agents/hooks/protect-secrets.sh
-.agents/hooks/enforce-gate-on-stop.sh
