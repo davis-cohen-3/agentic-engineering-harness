@@ -7,10 +7,14 @@ removes what the doctor never saw — so it is defined once, here.
 Importers set sys.dont_write_bytecode first. This is the skill's only imported module, so it is
 the only thing that could leave a __pycache__/ here — and install.sh publishes core/ byte-for-
 byte and inventories ~/.agents/ for drift: the .pyc would travel in one and be flagged by the other.
+That covers the two scripts, not a stray `import bindings` from anywhere else; the backstop for
+those is validate-payload in make/gate.mk.
 """
 import re
 
-_HOMED = re.compile(r"""^(?P<root>.*?)\.agents/hooks/(?P<script>[^/\s"']+)["']?\s*$""")
+# The script's class excludes shell metacharacters: `x.sh;` must not be read as a script called
+# "x.sh;" (a false red in the doctor). With one glued on, the `$` anchor fails and nothing matches.
+_HOMED = re.compile(r"""^(?P<root>.*?)\.agents/hooks/(?P<script>[^/\s"';&|()<>]+)["']?\s*$""")
 
 
 def homed_script(command):

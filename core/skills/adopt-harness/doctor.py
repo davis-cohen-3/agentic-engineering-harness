@@ -23,7 +23,8 @@ missing with no tombstone is still red.
 
 The payload cannot speak for a hook the harness RETIRED, so one more thing is
 read off the target itself: any binding into .agents/hooks/ whose script does
-not exist is red, expected or not — it runs a missing file on every event.
+not exist is red, expected or not — it runs a missing file on every event. The
+row carries the exact entry to delete, on every run.
 
 Any red row → exit 1, and copy.sh withholds its ✅. Codex trust is machine
 state the doctor cannot grant, but it CAN see that ~/.codex/config.toml has no
@@ -179,7 +180,10 @@ def main():
                     continue
                 red += 1
                 print(f"    ✗ {script:<32} bound under {event} in {os.path.relpath(path, target)}, "
-                      f"but .agents/hooks/{script} does not exist — remove that binding")
+                      f"but .agents/hooks/{script} does not exist — remove that binding:")
+                # Here, not only in the merge: copy.sh knows a hook was pruned for ONE run, then
+                # the record is gone. This row is what a later run still has to go on.
+                print(f"        \"command\": {json.dumps(command)}")
 
     codex_bindings = os.path.join(target, ".codex", "hooks.json")
     codex_config = os.path.expanduser("~/.codex/config.toml")

@@ -549,6 +549,15 @@ grep -q '\.claude/settings\.json' "$SB/rt2" && grep -qF -- "$(python3 -c 'import
 [ "$rc" -eq 1 ] && grep -Eq '✗ collab-reminders\.sh +bound under UserPromptSubmit in \.claude/settings\.json' "$SB/rt2" \
   && ok "…and the doctor holds the ✅ back on a red row, though the payload no longer expects the hook" \
   || no "dangling team binding not red (exit $rc): $(grep -n collab "$SB/rt2")"
+# The retiring run is the only one that knows the hook was pruned; the record is gone after it.
+# The entry to delete must not vanish with it — the doctor reads it off the file every time.
+HJSON="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$HCMD")"
+"$MCP" "$T12" none >"$SB/rt2b" 2>&1
+[ $? -eq 1 ] && grep -qF -- "\"command\": $HJSON" "$SB/rt2b" \
+  && ok "a LATER run, with nothing fixed, still prints the exact entry (the advisory is not one-shot)" \
+  || no "the exact entry vanished after the retiring run: $(grep -n collab "$SB/rt2b")"
+"$MCP" --doctor "$T12" >"$SB/rt2c" 2>&1
+grep -qF -- "\"command\": $HJSON" "$SB/rt2c" && ok "…and so does --doctor on its own" || no "--doctor names the binding but not the entry"
 python3 - "$T12" <<'PY'
 import json,sys
 p=f"{sys.argv[1]}/.claude/settings.json"; d=json.load(open(p)); del d["hooks"]["UserPromptSubmit"]
@@ -591,7 +600,11 @@ ours = ['"$(git rev-parse --path-format=absolute --git-common-dir)/../.agents/ho
         '$(git rev-parse --show-toplevel)/.agents/hooks/x.sh', '.agents/hooks/x.sh', 'bash ./.agents/hooks/x.sh']
 theirs = ['bash "$CLAUDE_PROJECT_DIR/scripts/x.sh"', '"$CLAUDE_PROJECT_DIR"/.claude/hooks/x.sh',
           '"$CLAUDE_PROJECT_DIR"/packages/sub/.agents/hooks/x.sh', 'vendor/.agents/hooks/x.sh',
-          '/abs/repo/.agents/hooks/x.sh', '"$CLAUDE_PROJECT_DIR"/.agents/hooks/x.sh --flag', 'npx prettier .', '']
+          '/abs/repo/.agents/hooks/x.sh', '"$CLAUDE_PROJECT_DIR"/.agents/hooks/x.sh --flag', 'npx prettier .', '',
+          # a shell metacharacter glued to the name must not become PART of the name
+          '"$CLAUDE_PROJECT_DIR"/.agents/hooks/x.sh;', '(cd a && "$CLAUDE_PROJECT_DIR"/.agents/hooks/x.sh)',
+          '"$CLAUDE_PROJECT_DIR"/.agents/hooks/x.sh&', '"$CLAUDE_PROJECT_DIR"/.agents/hooks/x.sh|| true',
+          '"$CLAUDE_PROJECT_DIR"/.agents/hooks/x.sh>/dev/null']
 assert [h(c) for c in ours] == ["x.sh"] * len(ours), [c for c in ours if h(c) != "x.sh"]
 assert [h(c) for c in theirs] == [None] * len(theirs), [c for c in theirs if h(c)]
 PY

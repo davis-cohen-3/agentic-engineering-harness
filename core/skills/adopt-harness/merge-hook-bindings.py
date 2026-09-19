@@ -29,6 +29,8 @@ that removal emptied, and the payload's own entry for it is not merged. Only tha
 exact path matches (bindings.homed_script): the same basename anywhere else is
 the repo's own and survives. A sibling is STILL never written — a dead binding
 there is printed with the exact entry to delete, and the doctor holds the ✅.
+That print happens ONCE: copy.sh can name a pruned script only on the run that
+prunes it. The doctor's red row repeats the entry on every run after.
 
 Prints a summary line for copy.sh to relay, then any sibling report, indented to
 sit under it. Exit 0 on success, 1 on a dest file that exists but cannot be
