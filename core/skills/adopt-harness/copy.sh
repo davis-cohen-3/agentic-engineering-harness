@@ -39,6 +39,11 @@
 # Hook BINDINGS are the third class: they register behaviour, so they MERGE (keyed by
 # event + script basename) instead of fill-once. The repo's own entries always survive;
 # the run is not ✅ until the doctor sees every hook active.
+# A binding is REMOVED only when its script is deliberately gone from .agents/hooks/ — pruned
+# because the harness retired it, or omitted by this repo — and only from the two files the
+# merge writes. A dead binding in the team's .claude/settings.json is never edited (#12 has no
+# exception, not even for our own leftovers): the run prints the exact entry to delete and the
+# doctor stays red until it is gone.
 set -euo pipefail
 
 CHECK=0 DOCTOR=0
@@ -247,6 +252,7 @@ done || exit 1
 
 n_add=0 n_cur=0 n_ref=0 n_held=0 n_prune=0 n_resolved=0
 conflicts=""     # newline list: "<path>\t<why>"
+pruned=""        # entries the prune below deleted THIS run — their bindings go with them
 added=""         # entries fresh-installed THIS run — migration may lay old-home edits over them
 
 install_entry() {  # src dst rel
@@ -308,7 +314,7 @@ if [ -f "$MANIFEST" ]; then
     P="$(man_get "$rel")"; dst="$TARGET/$rel"
     case "$P" in omitted:*) man_drop "$rel"; continue ;; esac
     if [ ! -f "$dst" ]; then man_drop "$rel"
-    elif [ "$(sha "$dst")" = "$P" ]; then rm -f "$dst"; man_drop "$rel"; n_prune=$((n_prune+1)); note "→ $rel pruned (removed upstream)"
+    elif [ "$(sha "$dst")" = "$P" ]; then rm -f "$dst"; man_drop "$rel"; n_prune=$((n_prune+1)); pruned="$pruned$rel"$'\n'; note "→ $rel pruned (removed upstream)"
     else man_drop "$rel"; note "⚠ $rel removed upstream but locally modified — left as the repo's own"; fi
   done < <(awk '!/^#/{sub(/^[^ ]+  /,""); print}' "$MANIFEST")
 fi
@@ -381,9 +387,17 @@ done
 # by convention) so a team-owned settings.json is never dirtied. It is passed as a sibling so a
 # hook the team already bound there is not duplicated.
 command -v python3 >/dev/null 2>&1 || { echo "✗ python3 is required to merge hook bindings" >&2; exit 1; }
-note "→ .claude/settings.local.json: $(python3 "$HERE/merge-hook-bindings.py" \
+# Hook scripts that are DELIBERATELY gone: pruned above, or tombstoned. A script that is merely
+# missing is a conflict, not a decision — it is never listed, so an accidental deletion cannot
+# unbind a guard. Nor is one that exists: a repo may keep its own file at an omitted path.
+gone=()
+while IFS= read -r rel; do
+  case "$rel" in .agents/hooks/*) [ -e "$TARGET/$rel" ] || gone+=(--gone "$(basename "$rel")") ;; esac
+done < <(printf '%s' "$pruned"; [ -f "$MANIFEST" ] && awk '/^omitted:/{sub(/^[^ ]+  /,""); print}' "$MANIFEST")
+# ${gone[@]+…}: bash 3.2 (macOS) treats an EMPTY array as unbound under set -u.
+note "→ .claude/settings.local.json: $(python3 "$HERE/merge-hook-bindings.py" ${gone[@]+"${gone[@]}"} \
   "$ROOT/adopt/settings.json" "$TARGET/.claude/settings.local.json" "$TARGET/.claude/settings.json")"
-note "→ .codex/hooks.json: $(python3 "$HERE/merge-hook-bindings.py" \
+note "→ .codex/hooks.json: $(python3 "$HERE/merge-hook-bindings.py" ${gone[@]+"${gone[@]}"} \
   "$ROOT/adopt/codex/hooks.json" "$TARGET/.codex/hooks.json")"
 
 # ── Decision O: hook scripts are copied per repo (decision K), so a fix reaches a repo only by

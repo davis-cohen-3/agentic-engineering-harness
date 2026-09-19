@@ -12,12 +12,20 @@ validate-json:
 # install.sh publishes core/ byte-for-byte; a symlink in the payload has no defined meaning there,
 # so forbid one rather than invent semantics. (Symlinks in the INSTALLED result are fine and
 # expected — ~/.claude/skills → ~/.agents/skills — they just live outside the payload.)
+# Bytecode is forbidden for the same reason: one stray `import` of a skill's module writes a
+# __pycache__/ that the publish carries to every machine and the drift inventory then flags.
 validate-payload:
 	@n=$$(find core adopt -type l | wc -l | tr -d ' '); \
 	  test "$$n" -eq 0 || { \
 	    echo "✗ $$n symlink(s) in the payload — install.sh publishes bytes, not links:"; \
 	    find core adopt -type l | sed 's/^/    /'; exit 1; }; \
 	  echo "→ payload has no symlinks"
+	@n=$$(find core adopt -name __pycache__ -o -name '*.pyc' | wc -l | tr -d ' '); \
+	  test "$$n" -eq 0 || { \
+	    echo "✗ Python bytecode in the payload — install.sh would publish it machine-wide:"; \
+	    find core adopt -name __pycache__ -o -name '*.pyc' | sed 's/^/    /'; \
+	    echo "  remove it; do NOT gitignore it (the publish is a tar of the directory, not of git)"; exit 1; }; \
+	  echo "→ payload has no Python bytecode"
 
 # GATE_STEPS is hand-maintained, so a new suite is silently never run until someone adds it here.
 suites-wired:

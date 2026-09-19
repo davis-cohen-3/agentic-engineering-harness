@@ -237,7 +237,7 @@ echo "staleness is measured, not guessed — against a harness that moves ahead"
 MH="$SB/mini-harness"
 mkdir -p "$MH/core/skills/adopt-harness"
 cp -R "$REPO/adopt" "$MH/adopt"
-cp "$REPO/core/skills/adopt-harness/"{copy.sh,merge-hook-bindings.py,doctor.py} "$MH/core/skills/adopt-harness/"
+cp "$REPO/core/skills/adopt-harness/"{copy.sh,*.py} "$MH/core/skills/adopt-harness/"
 git -C "$MH" init -q && git -C "$MH" config user.email t@t && git -C "$MH" config user.name t
 git -C "$MH" add -A && git -C "$MH" commit -qm v1
 MCP="$MH/core/skills/adopt-harness/copy.sh"
@@ -264,7 +264,7 @@ echo "a harness copy without git history still adopts — it just cannot stamp"
 NH="$SB/nogit-harness"
 mkdir -p "$NH/core/skills/adopt-harness"
 cp -R "$REPO/adopt" "$NH/adopt"
-cp "$REPO/core/skills/adopt-harness/"{copy.sh,merge-hook-bindings.py,doctor.py} "$NH/core/skills/adopt-harness/"
+cp "$REPO/core/skills/adopt-harness/"{copy.sh,*.py} "$NH/core/skills/adopt-harness/"
 T3="$SB/target3"; mkdir -p "$T3" && git -C "$T3" init -q
 "$NH/core/skills/adopt-harness/copy.sh" "$T3" none >"$SB/out3" 2>&1 && ok "adoption still exits 0" || no "no-git adoption failed"
 [ -e "$T3/.agents/harness-version" ] && no "stamped from thin air" || ok "no stamp invented"
@@ -409,6 +409,209 @@ grep -q 'Repo-tuned addendum' "$T6/.agents/briefs/reviewer.md" && [ -L "$T6/.cla
   && ok "the stamp moved to .agents/harness-version" || no "stamp migration failed"
 "$MCP" "$T6" none >"$SB/tw12" 2>&1 && grep -q '2 held' "$SB/tw12" \
   && ok "…and the next run counts both carried edits as HELD" || no "carried edits not held: $(grep managed "$SB/tw12")"
+
+# bound <file> <needle> → how many hook commands in <file> contain <needle>
+bound() { python3 - "$1" "$2" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+print(sum(sys.argv[2] in h["command"] for gs in d.get("hooks",{}).values() for g in gs for h in g.get("hooks",[])))
+PY
+}
+has_event() { python3 -c 'import json,sys; sys.exit(0 if sys.argv[2] in json.load(open(sys.argv[1])).get("hooks",{}) else 1)' "$1" "$2"; }
+
+echo "an OMITTED hook is a per-target exemption — a neutral doctor row, never a red one"
+# Found re-adopting melting v3 (2026-09-19): it omits the harness route-worktree.sh because it
+# binds WorktreeCreate to its OWN scripts/route-worktree.sh — same basename, different path. The
+# doctor read its expectations from the payload alone, so the sanctioned =omit could never reach ✅.
+T9="$SB/target9"; mkdir -p "$T9/.claude" "$T9/scripts" && git -C "$T9" init -q
+printf '#!/usr/bin/env bash\nexit 0\n' >"$T9/scripts/route-worktree.sh"; chmod +x "$T9/scripts/route-worktree.sh"
+cat >"$T9/.claude/settings.json" <<'JSON'
+{
+  "hooks": {
+    "WorktreeCreate": [
+      {"hooks": [{"type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/route-worktree.sh\""}]}
+    ]
+  }
+}
+JSON
+cp "$T9/.claude/settings.json" "$SB/team9"
+"$MCP" "$T9" none >/dev/null 2>&1 || no "melting-shaped adoption failed"
+"$MCP" --resolve ".agents/hooks/route-worktree.sh=omit" "$T9" none >"$SB/om1" 2>&1 \
+  && ok "a run that omits a hook exits 0" || no "omit run failed: $(tail -4 "$SB/om1")"
+grep -q '✅ harness copied and verified active' "$SB/om1" && ok "…and reaches the ✅" || no "no ✅ after a sanctioned omit"
+grep -Eq '– route-worktree\.sh +omitted by this repo' "$SB/om1" \
+  && ok "the doctor names the omitted hook on a NEUTRAL row" || no "no neutral row: $(grep route-worktree "$SB/om1")"
+grep -q '✗ route-worktree.sh' "$SB/om1" && no "the omitted hook is still a red row" || ok "…and not on a red one"
+grep -q 'doctor: .*1 omitted by this repo' "$SB/om1" \
+  && ok "the green summary COUNTS the omission instead of claiming every hook is active" || no "summary hides the omission: $(grep '^doctor:' "$SB/om1")"
+cmp -s "$SB/team9" "$T9/.claude/settings.json" \
+  && ok "the repo's OWN same-basename binding (scripts/route-worktree.sh) is byte-untouched" || no "the repo's own binding was rewritten"
+"$MCP" "$T9" none >/dev/null 2>&1 && "$MCP" --doctor "$T9" >/dev/null 2>&1 \
+  && ok "…and the tombstone keeps plain re-adoption and --doctor green" || no "the exemption did not hold across runs"
+
+echo "omitting a hook UNBINDS it — a tombstone and a live binding to the same script cannot coexist"
+# Without this the neutral row would be a lie: =omit deleted the script but left the binding the
+# first adoption wrote, so the provider ran a missing file on every event.
+T10="$SB/target10"; mkdir -p "$T10" && git -C "$T10" init -q
+"$MCP" "$T10" none >/dev/null 2>&1 || no "T10 adoption failed"
+"$MCP" --resolve ".agents/hooks/collab-reminders.sh=omit" "$T10" none >"$SB/om2" 2>&1 \
+  && ok "omitting a hook the first adoption BOUND exits 0" || no "omit of a bound hook failed: $(tail -4 "$SB/om2")"
+[ "$(bound "$T10/.claude/settings.local.json" collab-reminders)" = 0 ] && [ "$(bound "$T10/.codex/hooks.json" collab-reminders)" = 0 ] \
+  && ok "its binding is gone from BOTH providers' files" || no "an omitted hook is still bound"
+has_event "$T10/.claude/settings.local.json" UserPromptSubmit || has_event "$T10/.codex/hooks.json" UserPromptSubmit \
+  && no "an emptied event key was left behind" || ok "…and the event key it emptied is deleted"
+[ "$(grep -Ec '– collab-reminders\.sh +omitted by this repo' "$SB/om2")" = 2 ] \
+  && ok "the neutral row appears under each provider that expected it" || no "neutral rows wrong: $(grep collab "$SB/om2")"
+cp "$T10/.claude/settings.local.json" "$SB/o1"; cp "$T10/.codex/hooks.json" "$SB/o2"
+"$MCP" "$T10" none >/dev/null 2>&1 || no "re-adoption after omit failed"
+cmp -s "$SB/o1" "$T10/.claude/settings.local.json" && cmp -s "$SB/o2" "$T10/.codex/hooks.json" \
+  && ok "re-adoption does NOT re-bind an omitted hook — neither file changes" || no "the merge re-bound an omitted hook"
+
+echo "a hook missing WITHOUT a tombstone is still red — the exemption is the tombstone, not the absence"
+rm "$T10/.agents/hooks/flag-comment-bloat.sh"
+"$MCP" --doctor "$T10" >"$SB/om3" 2>&1
+rc=$?
+[ "$rc" -eq 1 ] && grep -Eq '✗ flag-comment-bloat\.sh +script missing' "$SB/om3" \
+  && ok "--doctor: exit 1 and the missing script is NAMED" || no "untombstoned deletion not red (exit $rc): $(grep flag-comment "$SB/om3")"
+"$MCP" "$T10" none >/dev/null 2>&1
+[ $? -eq 1 ] && [ "$(bound "$T10/.claude/settings.local.json" flag-comment-bloat)" = 1 ] && [ "$(bound "$T10/.codex/hooks.json" flag-comment-bloat)" = 1 ] \
+  && ok "…and an ACCIDENTAL deletion never unbinds — the guard stays bound for the restore" || no "a conflicted-missing hook lost its binding"
+"$MCP" --resolve ".agents/hooks/flag-comment-bloat.sh=upstream" "$T10" none >/dev/null 2>&1 \
+  && ok "…which =upstream then completes" || no "restore after accidental deletion failed"
+
+echo "a hook the harness RETIRES takes its bindings with it"
+# Harness #19 retired enforce-gate-on-stop.sh. Re-adoption pruned the script, but the merge only
+# ever ADDED, so both providers kept a Stop binding to a file that no longer existed — and the
+# doctor, checking only what the payload expects, stayed green. Three targets, one retirement:
+HCMD='"$(git rev-parse --path-format=absolute --git-common-dir)/../.agents/hooks/collab-reminders.sh"'
+T11="$SB/target11"; T12="$SB/target12"; T13="$SB/target13"
+for t in "$T11" "$T12" "$T13"; do mkdir -p "$t/.claude" && git -C "$t" init -q; done
+# T12 is melting #102's shape: the team TRACKS the harness bindings in its own settings.json.
+python3 - "$T12" "$HCMD" <<'PY'
+import json,sys
+json.dump({"hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":sys.argv[2]}]}]}},
+          open(f"{sys.argv[1]}/.claude/settings.json","w"),indent=2)
+PY
+cp "$T12/.claude/settings.json" "$SB/team12"
+for t in "$T11" "$T12" "$T13"; do "$MCP" "$t" none >/dev/null 2>&1 || no "pre-retirement adoption of $(basename "$t") failed"; done
+[ "$(bound "$T12/.claude/settings.local.json" collab-reminders)" = 0 ] || no "T12 setup: the team's binding was duplicated into settings.local.json"
+# T11 carries the repo's OWN entries beside the harness one: the same basename at the repo's own
+# path, the same basename in a NESTED repo's hook home, and its own script in the shared home.
+printf '#!/usr/bin/env bash\nexit 0\n' >"$T11/.agents/hooks/repo-own-guard.sh"; chmod +x "$T11/.agents/hooks/repo-own-guard.sh"
+python3 - "$T11" <<'PY'
+import json,sys
+p=f"{sys.argv[1]}/.claude/settings.local.json"; d=json.load(open(p))
+d["hooks"]["UserPromptSubmit"].append({"hooks":[
+  {"type":"command","command":'"$CLAUDE_PROJECT_DIR"/scripts/collab-reminders.sh'},
+  {"type":"command","command":'"$CLAUDE_PROJECT_DIR"/packages/sub/.agents/hooks/collab-reminders.sh'},
+  {"type":"command","command":'"$CLAUDE_PROJECT_DIR"/.agents/hooks/repo-own-guard.sh'}]})
+json.dump(d,open(p,"w"),indent=2)
+PY
+printf '\n# local tuning\n' >>"$T13/.agents/hooks/collab-reminders.sh"   # T13: retired upstream, EDITED here
+
+git -C "$MH" rm -q adopt/hooks/collab-reminders.sh
+python3 - "$MH" <<'PY'
+import json,sys
+for f in ("adopt/settings.json","adopt/codex/hooks.json"):
+    p=f"{sys.argv[1]}/{f}"; d=json.load(open(p)); del d["hooks"]["UserPromptSubmit"]
+    json.dump(d,open(p,"w"),indent=2)
+PY
+git -C "$MH" commit -qam "retire collab-reminders"
+
+"$MCP" "$T11" none >"$SB/rt1" 2>&1 && ok "re-adoption across a retirement exits 0" || no "retirement run failed: $(tail -4 "$SB/rt1")"
+grep -q 'collab-reminders.sh pruned (removed upstream)' "$SB/rt1" && [ ! -e "$T11/.agents/hooks/collab-reminders.sh" ] \
+  && ok "the unmodified script is pruned (unchanged behaviour)" || no "script not pruned"
+[ "$(bound "$T11/.claude/settings.local.json" '/../.agents/hooks/collab-reminders.sh')" = 0 ] \
+  && [ "$(bound "$T11/.codex/hooks.json" collab-reminders)" = 0 ] \
+  && ok "…and its binding is removed from BOTH providers' files" || no "a dangling binding to the pruned script survives"
+[ "$(grep -c 'removed 1 dead binding' "$SB/rt1")" = 2 ] && ok "…and each file's summary line says so" || no "removal not reported: $(grep -E 'settings.local|hooks.json' "$SB/rt1")"
+has_event "$T11/.codex/hooks.json" UserPromptSubmit && no "the event key the prune emptied was left behind" || ok "an event key that becomes empty is deleted"
+python3 - "$T11" <<'PY' && ok "the repo's OWN entries survive verbatim — same basename elsewhere, a nested hook home, its own script" || no "the prune touched a repo-owned binding"
+import json,sys
+d=json.load(open(f"{sys.argv[1]}/.claude/settings.local.json"))
+got=[h["command"] for g in d["hooks"]["UserPromptSubmit"] for h in g["hooks"]]
+assert got==['"$CLAUDE_PROJECT_DIR"/scripts/collab-reminders.sh',
+             '"$CLAUDE_PROJECT_DIR"/packages/sub/.agents/hooks/collab-reminders.sh',
+             '"$CLAUDE_PROJECT_DIR"/.agents/hooks/repo-own-guard.sh'], got
+PY
+grep -q '✅ harness copied and verified active' "$SB/rt1" && ok "…under a green doctor" || no "no ✅ after the retirement run"
+cp "$T11/.claude/settings.local.json" "$SB/r1"; cp "$T11/.codex/hooks.json" "$SB/r2"
+"$MCP" "$T11" none >/dev/null 2>&1
+cmp -s "$SB/r1" "$T11/.claude/settings.local.json" && cmp -s "$SB/r2" "$T11/.codex/hooks.json" \
+  && ok "the next run changes neither binding file (still idempotent)" || no "re-run mutated a binding file"
+
+echo "…but a dead binding in the TEAM's settings.json is reported, never edited (#12 holds)"
+"$MCP" "$T12" none >"$SB/rt2" 2>&1
+rc=$?
+cmp -s "$SB/team12" "$T12/.claude/settings.json" && ok "the team's settings.json is BYTE-UNTOUCHED" || no "the prune dirtied the team-owned settings.json"
+grep -q '\.claude/settings\.json' "$SB/rt2" && grep -qF -- "$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$HCMD")" "$SB/rt2" \
+  && ok "the run names the file and prints the EXACT entry to remove" || no "no hand-removal instruction: $(grep -n settings.json "$SB/rt2")"
+[ "$rc" -eq 1 ] && grep -Eq '✗ collab-reminders\.sh +bound under UserPromptSubmit in \.claude/settings\.json' "$SB/rt2" \
+  && ok "…and the doctor holds the ✅ back on a red row, though the payload no longer expects the hook" \
+  || no "dangling team binding not red (exit $rc): $(grep -n collab "$SB/rt2")"
+# The retiring run is the only one that knows the hook was pruned; the record is gone after it.
+# The entry to delete must not vanish with it — the doctor reads it off the file every time.
+HJSON="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$HCMD")"
+"$MCP" "$T12" none >"$SB/rt2b" 2>&1
+[ $? -eq 1 ] && grep -qF -- "\"command\": $HJSON" "$SB/rt2b" \
+  && ok "a LATER run, with nothing fixed, still prints the exact entry (the advisory is not one-shot)" \
+  || no "the exact entry vanished after the retiring run: $(grep -n collab "$SB/rt2b")"
+"$MCP" --doctor "$T12" >"$SB/rt2c" 2>&1
+grep -qF -- "\"command\": $HJSON" "$SB/rt2c" && ok "…and so does --doctor on its own" || no "--doctor names the binding but not the entry"
+python3 - "$T12" <<'PY'
+import json,sys
+p=f"{sys.argv[1]}/.claude/settings.json"; d=json.load(open(p)); del d["hooks"]["UserPromptSubmit"]
+json.dump(d,open(p,"w"),indent=2)
+PY
+"$MCP" "$T12" none >/dev/null 2>&1 && ok "removing that entry by hand is all it takes to go green" || no "still red after the hand edit"
+
+echo "…and a retired hook the repo EDITED keeps its binding — the script is still there"
+"$MCP" "$T13" none >"$SB/rt3" 2>&1 && ok "the run exits 0" || no "edited-retired run failed: $(tail -4 "$SB/rt3")"
+grep -q 'collab-reminders.sh removed upstream but locally modified' "$SB/rt3" && [ -f "$T13/.agents/hooks/collab-reminders.sh" ] \
+  && ok "the edited script is left as the repo's own (unchanged behaviour)" || no "edited script not kept"
+[ "$(bound "$T13/.claude/settings.local.json" collab-reminders)" = 1 ] && [ "$(bound "$T13/.codex/hooks.json" collab-reminders)" = 1 ] \
+  && ok "…and both bindings to it are left alone" || no "a binding to a surviving script was removed"
+
+echo "the doctor flags ANY binding into .agents/hooks/ whose script is missing — and adoption never guesses"
+# A name the harness has no record of (here: what an older copy.sh left behind after #19) cannot be
+# told from the repo's own hook, so it is reported for a hand edit, not removed.
+python3 - "$T11" <<'PY'
+import json,sys
+p=f"{sys.argv[1]}/.codex/hooks.json"; d=json.load(open(p))
+d["hooks"]["Stop"]=[{"hooks":[{"type":"command","command":'"$(git rev-parse --path-format=absolute --git-common-dir)/../.agents/hooks/enforce-gate-on-stop.sh"'}]}]
+json.dump(d,open(p,"w"),indent=2)
+PY
+"$MCP" --doctor "$T11" >"$SB/rt4" 2>&1
+rc=$?
+[ "$rc" -eq 1 ] && grep -Eq '✗ enforce-gate-on-stop\.sh +bound under Stop in \.codex/hooks\.json' "$SB/rt4" \
+  && ok "--doctor: exit 1, naming the script, the event and the file" || no "unexpected dangling binding not red (exit $rc): $(cat "$SB/rt4")"
+"$MCP" "$T11" none >/dev/null 2>&1
+[ $? -eq 1 ] && [ "$(bound "$T11/.codex/hooks.json" enforce-gate-on-stop)" = 1 ] \
+  && ok "…and re-adoption leaves an entry it has no record of, staying red until a human decides" || no "adoption removed a binding it never managed"
+
+echo "what counts as a binding into the hook home — the rule the merge REMOVES on"
+python3 - "$REPO/core/skills/adopt-harness" <<'PY' && ok "root expressions match; the repo's own paths, a nested hook home and wrappers with arguments do not" || no "homed_script misjudged a command form"
+import sys
+sys.dont_write_bytecode = True
+sys.path.insert(0, sys.argv[1])
+from bindings import homed_script as h
+ours = ['"$(git rev-parse --path-format=absolute --git-common-dir)/../.agents/hooks/x.sh"',
+        '"$CLAUDE_PROJECT_DIR"/.agents/hooks/x.sh', 'bash "$CLAUDE_PROJECT_DIR/.agents/hooks/x.sh"',
+        '$(git rev-parse --show-toplevel)/.agents/hooks/x.sh', '.agents/hooks/x.sh', 'bash ./.agents/hooks/x.sh']
+theirs = ['bash "$CLAUDE_PROJECT_DIR/scripts/x.sh"', '"$CLAUDE_PROJECT_DIR"/.claude/hooks/x.sh',
+          '"$CLAUDE_PROJECT_DIR"/packages/sub/.agents/hooks/x.sh', 'vendor/.agents/hooks/x.sh',
+          '/abs/repo/.agents/hooks/x.sh', '"$CLAUDE_PROJECT_DIR"/.agents/hooks/x.sh --flag', 'npx prettier .', '',
+          # a shell metacharacter glued to the name must not become PART of the name
+          '"$CLAUDE_PROJECT_DIR"/.agents/hooks/x.sh;', '(cd a && "$CLAUDE_PROJECT_DIR"/.agents/hooks/x.sh)',
+          '"$CLAUDE_PROJECT_DIR"/.agents/hooks/x.sh&', '"$CLAUDE_PROJECT_DIR"/.agents/hooks/x.sh|| true',
+          '"$CLAUDE_PROJECT_DIR"/.agents/hooks/x.sh>/dev/null']
+assert [h(c) for c in ours] == ["x.sh"] * len(ours), [c for c in ours if h(c) != "x.sh"]
+assert [h(c) for c in theirs] == [None] * len(theirs), [c for c in theirs if h(c)]
+PY
+# install.sh publishes core/ byte-for-byte and inventories ~/.agents/ for drift; the suite above
+# has just run both scripts dozens of times, so any bytecode they write is sitting here now.
+[ ! -e "$MH/core/skills/adopt-harness/__pycache__" ] && [ ! -e "$REPO/core/skills/adopt-harness/__pycache__" ] \
+  && ok "the skill's Python leaves no __pycache__/ beside itself" || no "a __pycache__/ was written into the published skill directory"
 
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

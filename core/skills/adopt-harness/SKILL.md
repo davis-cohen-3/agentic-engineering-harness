@@ -38,10 +38,13 @@ A repo adopted before the neutral root is migrated in place.
 `AGENTS.md`, `make/gate.mk`, `specs/README.md`, the docs scaffolds — is written only when absent.
 Hook **bindings** MERGE (keyed by event + script) — Claude bindings into
 `.claude/settings.local.json` (the team's `settings.json` is read for dedup but never written),
-Codex bindings into `.codex/hooks.json`. Everything else is MANAGED and updates by a three-way
-comparison against `.agents/MANIFEST`: untouched entries refresh, locally-edited ones are held
-and counted, and an entry changed on BOTH sides is a loud conflict — the run exits 1 and names
-each path. Resolve conflicts one decision at a time with
+Codex bindings into `.codex/hooks.json`. A binding is removed only when its script is
+deliberately gone — retired by the harness or omitted by this repo — and only from those two
+files; if the run prints a dead entry left in the team's `settings.json`, show the user that
+exact line to delete — the doctor stays red until it is gone. Everything else is MANAGED and
+updates by a three-way comparison against `.agents/MANIFEST`: untouched entries refresh,
+locally-edited ones are held and counted, and an entry changed on BOTH sides is a loud
+conflict — the run exits 1 and names each path. Resolve conflicts one decision at a time with
 `copy.sh --resolve <path>=<upstream|local|omit> .` and re-run; entries in the harness's
 `adopt/CRITICAL` (the security hooks) block the ✅ until resolved. Never resolve a CRITICAL
 conflict for the user — show them both sides and ask.
@@ -78,6 +81,7 @@ scout didn't find — flag gaps instead.
   (`make check`'s harness canary asserts this), and the
   doctor is green — `copy.sh` runs it automatically (no ✅ without it), and it can be re-run
   any time: `<harness-path>/core/skills/adopt-harness/copy.sh --doctor .` — every hook
-  present, bound per provider, and fired clean against a benign payload. If it warns about a
+  present, bound per provider, and fired clean against a benign payload. A `–` row is a hook
+  this repo omitted (`--resolve …=omit`): exempt, not red. If it warns about a
   missing Codex trust entry, tell the user their next Codex session must accept the hooks.
 - Hand back: what was filled, what the gate ran, any slot left for the user.
