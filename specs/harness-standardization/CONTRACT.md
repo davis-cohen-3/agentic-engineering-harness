@@ -299,6 +299,11 @@ adopt/                     → a target repo, homed at the provider-neutral .age
   settings.json            → .claude/settings.local.json (Claude binding — MERGED, keyed by
                              event+script; the team's settings.json is read for dedup, never written)
   codex/hooks.json         → .codex/hooks.json       (Codex binding — MERGED the same way)
+                             A binding to .agents/hooks/<x> is REMOVED from these two files when
+                             <x> is deliberately gone (retired upstream and pruned, or omitted
+                             by the repo). "Never written" has no exception for the team's
+                             settings.json: a dead binding there is printed for a hand edit and
+                             the doctor holds the ✅ (2026-09-19, found re-adopting melting v3).
   CRITICAL                 the managed entries whose conflicts fail closed
   docs/                    → docs/ — INDEX.md, architecture.md, glossary.md, adrs/ (see §4)
   Makefile, make/, specs/
